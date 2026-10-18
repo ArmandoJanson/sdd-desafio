@@ -99,8 +99,6 @@ Exemplo da saída:
 
 ## 5. Regras de negócio
 
-Cada regra recebe um ID (`RN-001`, ...). As tasks vão referenciar esses IDs.
-
 ### RN-001 — Limite das despesas com alimentação
 
 **Regra:** 
@@ -340,8 +338,10 @@ Cada regra recebe um ID (`RN-001`, ...). As tasks vão referenciar esses IDs.
 **Regra:** 
     O funcionário estará em viagem quando o valor informado no campo categoria for hospedagem e no fornecedor contiver uma das palavras a seguir: hotel, airbnb, pousada, hostel ou camping.
  
-	Será necessário converter o valor do campo para minúsculo para que seja possível verificar de forma assertiva se uma das palavras listadas está presente no valor informado no campo fornecedor. 
+	Será necessário converter o valor do campo para minúsculo para que seja possível verificar de forma assertiva se uma das palavras listadas está presente no valor informado no campo fornecedor.
+     
     Será necessário verificar a quantidade de diárias/noites informadas na descrição. Caso não seja informado nenhum valor numérico, deverá ser considerada uma diária.
+    
     Caso seja informada no campo descricao mais de uma diária/noite, para noites somar mais uma dia, os limites tratados nas regras anteriores para as desepesas deverão ser ampliados em 50%. 
 
 **Origem:** política do RH, item `6`
@@ -460,7 +460,7 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 ### RN-007 — Duplicatas devem ser tratadas
 
 **Regra:** 
-    Para os registros que possuam exatamente os mesmo valores, por exemplo despesas que possuem exatamente a mesma data, categoria, fornecedor, descrição e valor, deve ser avaliada a despesa com o id mais recente.
+    Para os registros que possuam exatamente os mesmo valores, por exemplo despesas que possuem exatamente a mesma data, categoria, fornecedor, descrição e valor, deve ser avaliada a despesa com o id mais recente. O registro com id mais antigo deverá ser rejeitado.
     Essa regra deverá ser verificada para que seja possível aplicar as regras anteriores.
 
 **Origem:** política do RH, item `<n>`
@@ -533,6 +533,111 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 
         Então o sistema deve identificar a inconformidade na forma escrita e retornar o status "rejeitado - categoria inválida".
 
+### RN-009 — Vigência deve seguir o formato "YYYY-MM"
+
+**Regra:** 
+    O formato da vigência seguir o padrão "YYYY-MM", onde o "YYYY" representa o ano e o "MM" representa o mês. Se a vigência não estiver válida, o processamento do registro de despesa deverá ser rejeitado.
+
+**Origem:** política do RH, item `7`
+**Aceite:** 
+    **Cenário 01** — Vigência em formato válido (Aprovado / Sequência do fluxo)
+        Dado que um registro de despesa é enviado com o campo vigencia preenchido com o valor "2026-10";
+
+        Quando o sistema processar a validação da RN-009;
+
+        Então o sistema deve reconhecer o formato como válido (ano com 4 dígitos e mês válido entre 01 e 12) e permitir o prosseguimento do registro para o fluxo das demais regras.
+
+    **Cenário 02** — Vigência com formato incorreto / separador inválido (Rejeitado)
+        Dado um lançamento de despesa no qual o campo vigencia foi informado em um dos seguintes formatos incorretos:
+
+        "10/2026" (formato MM/YYYY)
+
+        "2026/10" (uso de barra ao invés de hífen)
+
+        "202610" (sem separador)
+
+        "2026-10-15" (formato de data completa YYYY-MM-DD)
+
+        Quando o sistema avaliar o campo vigencia contra a mascara "YYYY-MM";
+
+        Então o sistema deve rejeitar o processamento do registro e retornar o status rejeitado.
+
+    **Cenário 03** — Vigência com mês numérico inválido (Rejeitado)
+        Dado um lançamento de despesa no qual o campo vigencia possui 4 dígitos no ano e 2 no mês, porém com valor de mês fora do intervalo de 01 a 12 (ex.: "2026-13" ou "2026-00");
+
+        Quando o sistema validar a consistência da data informada na regra;
+
+        Então o sistema deve identificar a data como inválida e retornar o status rejeitado.
+
+    **Cenário 04** — Vigência não informada ou nula (Rejeitado)
+        Dado um lançamento de despesa no qual o campo vigencia encontra-se vazio ("") ou nulo (null);
+
+        Quando o sistema processar a validação da RN-009;
+
+        Então a regra não é atendida e o sistema deve rejeitar o processamento retornando o status rejeitado.
+
+### RN-010 — Tratamento de Valores Negativos
+
+**Regra:** 
+    O registros das despesas que apresentarem valores negativos, deverão ser rejeitados pois não são elegíveis ao reembolso.
+
+**Origem:** política do RH, item `1`,`2`,`3`,`4`,`5`
+**Aceite:** 
+    **Cenário 01** — Despesa com valor positivo (Aprovado / Sequência do fluxo)
+        Dado um lançamento de despesa no qual o campo valor é informado com um número positivo, como R$ 50,00 (ou 50.00);
+
+        Quando o sistema processar a validação da RN-010;
+
+        Então o valor é reconhecido como válido e o registro deve prosseguir para a avaliação das demais regras do fluxo.
+
+    **Cenário 02** — Despesa com valor negativo (Rejeitado)
+        Dado um lançamento de despesa no qual o campo valor é informado com um número negativo, como -R$ 25,00 (ou -25.00);
+
+        Quando o sistema processar a validação da RN-010;
+
+        Então o sistema deve identificar que o valor é inelegível para reembolso e retornar o status rejeitado.
+
+    **Cenário 03** — Despesa com valor zero (Rejeitado)
+        Dado um lançamento de despesa no qual o campo valor é informado como R$ 0,00 (ou 0.00);
+
+        Quando o sistema avaliar a elegibilidade do valor para reembolso;
+
+        Então o sistema não deve permitir o reembolso de valor nulo/zerado e deve retornar o status rejeitado.
+
+### RN-011 — Precisão Decimal em Valores Monetários
+
+**Regra:** 
+    Os valores apresentados nos registros das despesas serão tratados e o valor do resultado irá conter duas casas decimais. Os arredontamentos deverão seguir o padrão matémático.
+
+**Origem:** política do RH, item `1`,`2`,`3`,`4`,`5`
+**Aceite:** 
+    **Cenário 01** — Valor monetário já formatado com exatamente duas casas decimais (Aprovado / Sequência do fluxo)
+        Dado que um registro de despesa é enviado com o campo valor contendo exatamente duas casas decimais, como R$ 45,50 (ou 45.50);
+
+        Quando o sistema processar a validação da RN-011;
+
+        Então o sistema deve reconhecer a precisão decimal correta, manter o valor inalterado e prosseguir no fluxo de validação.
+
+    **Cenário 02** — Arredondamento matemático para cima (Terceira casa decimal ≥ 5)
+        Dado um lançamento de despesa no qual o cálculo ou entrada do campo valor resulte em um número com mais de duas casas decimais, como R$ 80,456 ou R$ 60,005;
+
+        Quando o sistema aplicar a regra de arredondamento matemático padrão;
+
+        Então o valor deve ser ajustado para cima na segunda casa decimal, resultando em R$ 80,46 e R$ 60,01, respectivamente, e seguir para o fluxo de reembolso com o valor ajustado.
+
+    **Cenário 03** — Arredondamento matemático para baixo (Terceira casa decimal < 5)
+        Dado um lançamento de despesa no qual o cálculo ou entrada do campo valor resulte em um número com mais de duas casas decimais, como R$ 80,454 ou R$ 60,002;
+
+        Quando o sistema aplicar a regra de arredondamento matemático padrão;
+
+        Então o valor deve ser mantido na segunda casa decimal sem alteração, resultando em R$ 80,45 e R$ 60,00, respectivamente, e seguir para o fluxo de reembolso com o valor ajustado.
+
+    **Cenário 04** — Entrada de valor inteiro sem casas decimais (Normalização para duas casas)
+        Dado um lançamento de despesa enviado com valor inteiro, como R$ 100 (ou 100);
+
+        Quando o sistema processar a formatação da RN-011;
+
+        Então o sistema deve normalizar o valor exibindo/armazenando duas casas decimais (R$ 100,00) para garantir a precisão requerida pela política.
 ---
 
 ## 6. Ambiguidades identificadas e decisões
@@ -541,18 +646,89 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 > Uma ambiguidade que você resolveu no código sem registrar aqui conta como
 > não resolvida.
 
-### AMB-001 — <o que a política deixou em aberto>
+### AMB-001 — Limite por Despesa vs. Acumulado Diário
 
-**Texto original do RH:** "<citação literal>"
-**O que não está claro:** <as duas ou mais leituras possíveis>
-**Decisão:** <o que o sistema faz>
-**Justificativa:** <por quê — uma linha; critério de negócio, não de conveniência técnica>
-**Regra afetada:** RN-00X
+**Texto original do RH:** "Alimentação tem limite de R$ 60 por dia."
+**O que não está claro:** O limite de R$ 60 aplica-se individualmente a cada item de despesa ou ao somatório de todas as despesas daquela categoria no mesmo dia? Se for por dia, o excesso é calculado sobre o total acumulado (R$ 110,50 - R$ 60 = R$ 50,50 de excedente)?
+**Decisão:** O somatório de todas as despesas no mesmo dia terá o limite de R$ 60,00 para a categoria alimentacao, inclusive.
+**Justificativa:** Garantir o cumprimento do teto orçamentário diário estabelecido pela política da empresa, impedindo que o fracionamento de refeições distintas ultrapasse o limite total permitido.
+**Regra afetada:** RN-001
 
-### AMB-002 — ...
+### AMB-002 — Limiar Exato de Obrigação de Nota Fiscal
 
-<A política tem no mínimo oito. Se você achou menos, releia
-`exemplos/despesas-exemplo.json` — cada item daquele arquivo existe por um motivo.>
+**Texto original do RH:** "Nota fiscal é obrigatória acima de R$ 100."
+**O que não está claro:** O operador lógico é estritamente maior (> 100) ou maior ou igual (>= 100)? Uma despesa de exatamente R$ 100,00 (como a d-003) exige nota fiscal ou está isenta?
+**Decisão:** Para todas as desejas registradas que tiverem valor acima de 100,00, será obrigatória a apresentação da nova fiscal. Caso não seja reallizada a entrada da nota fiscal o reembolso será rejeitado.
+**Justificativa:** Proteger o caixa da empresa e cumprir as regras fiscais, exigindo nota fiscal apenas quando o valor do gasto passar de R$ 100,00 para comprovar em que o dinheiro foi usado.
+**Regra afetada:** RN-004
+
+### AMB-003 — Ausência de Indicador de "Em Viagem"
+
+**Texto original do RH:** "Colaborador em viagem tem limites ampliados em 50%."
+**O que não está claro:** Como o motor sabe quais dias aplicar o acréscimo de 50% nos limites de alimentação e transporte se o JSON não possui um campo booleano ou de status informando se o colaborador estava em viagem na data da despesa?
+**Decisão:** Verifica o conteúdo do campo fornecedor e a partir do conteúdo dele decidirá se o colaborador estará em viagem ou não.
+**Justificativa:** Garantir o reembolso com valor ampliado aos colaboradores em viagem identificando automaticamente o local ou serviço utilizado, sem precisar exigir comprovantes ou cadastros manuais adicionais.
+**Regra afetada:** RN-005
+
+### AMB-004 — Critério e Ação para Duplicatas
+
+**Texto original do RH:** "Duplicatas devem ser tratadas."
+**O que não está claro:** O que significa "tratadas"? Devem ser rejeitadas automaticamente pelo motor, bloqueadas para auditoria humana ou consideradas refeições independentes (ex: almoço em dois horários diferentes)?
+**Decisão:** Para os registros que possuam exatamente os mesmo valores, por exemplo despesas que possuem exatamente a mesma data, categoria, fornecedor, descrição e valor, deve ser avaliada a despesa com o id mais recente. O registro com id mais antigo deverá ser rejeitado.
+**Justificativa:** Evitar que a empresa pague duas vezes pela mesma despesa enviada por engano, mantendo apenas o registro mais recente para garantir a cobrança correta.
+**Regra afetada:** RN-007
+
+### AMB-005 — Lançamentos Fora do Período de Competência
+
+**Texto original do RH:** "Despesas devem ser lançadas dentro do período de competência."
+**O que não está claro:** Como o motor deve agir com despesas cujo mês/ano da despesa difere da competência declarada? O item deve ser sumariamente recusado, ignorado ou retido para o mês correto?
+**Decisão:** A data da despesa lançada deve estar dentro do período de competência que é registrado entre o valor de inicio e o fim do período informado.
+
+    Os status de retorno deve ser:
+    1. aprovado : caso a regra seja atendida
+    2. rejeitado: caso a regra não seja atendida
+**Justificativa:** Garantir o controle financeiro e o fechamento correto das contas da empresa, aceitando apenas despesas que pertençam exatamente ao período em aberto.
+**Regra afetada:** RN-006
+
+### AMB-006 — Sensibilidade a Maiúsculas e Minúsculas (Case Sensitivity) nas Categorias
+
+**Texto original do RH:** "Categorias fora da política não são reembolsáveis."
+**O que não está claro:** O motor de processamento é sensível a letras maiúsculas/minúsculas? Se for case-sensitive, "ALIMENTACAO" será tratada como uma categoria desconhecida e bloqueada pela Regra 9 do RH?
+**Decisão:** Serão avaliados apenas os registros das categorias "alimentacao", "coworking", "hospedagem" e "transporte_urbano", na forma que estão escritas. Qualquer categoria diferente das listadas anterior mente deverá retornar o status "rejeitado - categoria inválida" para o registro .
+**Justificativa:** Garantir a padronização dos gastos e o cumprimento estrito das categorias aprovadas pela empresa, recusando lançamentos com grafias fora do padrão para evitar erros de reembolso.
+**Regra afetada:** RN-008
+
+### AMB-007 — Categorias Não Listadas na Política (Ex: Coworking)
+
+**Texto original do RH:** "Categorias fora da política não são reembolsáveis."
+**O que não está claro:** A política restringe-se explicitamente a alimentação, transporte urbano e hospedagem. Despesas de espaço de trabalho compartilhado (coworking) são totalmente recusadas ou deveriam ser embutidas em outra rubrica?
+**Decisão:** Serão avaliados apenas os registros das categorias "alimentacao", "coworking", "hospedagem" e "transporte_urbano", na forma que estão escritas. Qualquer categoria diferente das listadas anterior mente deverá retornar o status "rejeitado - categoria inválida" para o registro .
+**Justificativa:** Garantir a padronização dos gastos e o cumprimento estrito das categorias aprovadas pela empresa, recusando lançamentos com grafias fora do padrão para evitar erros de reembolso.
+**Regra afetada:** RN-008
+
+### AMB-008 — Tratamento de Valores Negativos (Estornos)
+
+**Texto original do RH:** " 1. Alimentação tem limite de R$ 60 por dia.
+                            2. Transporte urbano tem limite de R$ 80 por dia.
+                            3. Hospedagem tem limite de R$ 250 por diária.
+                            4. Despesas acima do limite são reembolsadas parcialmente.
+                            5. Nota fiscal é obrigatória acima de R$ 100."
+**O que não está claro:** Como o motor processa estornos? O valor deve ser abatido do total do dia, da categoria de transporte urbano, ou gera um saldo devedor/rejeição de formato?
+**Decisão:** O registros das despesas que apresentarem valores negativos, deverão ser rejeitados pois não são elegíveis ao reembolso.
+**Justificativa:** Proteger a empresa contra pagamentos indevidos, garantindo que o sistema processe apenas solicitações de reembolso de gastos reais efetuados pelo colaborador.
+**Regra afetada:** RN-010
+
+### AMB-009 — Precisão Decimal em Valores Monetários
+
+**Texto original do RH:** " 1. Alimentação tem limite de R$ 60 por dia.
+                            2. Transporte urbano tem limite de R$ 80 por dia.
+                            3. Hospedagem tem limite de R$ 250 por diária.
+                            4. Despesas acima do limite são reembolsadas parcialmente.
+                            5. Nota fiscal é obrigatória acima de R$ 100."
+**O que não está claro:** A política não define regras de arredondamento para valores com mais de duas casas decimais. O motor deve truncar, arredondar para cima/baixo (regras da ABNT/matemáticas) ou rejeitar o lançamento por erro de validação de formato de moeda?
+**Decisão:** Os valores apresentados nos registros das despesas serão tratados e o valor do resultado irá conter duas casas decimais. Os arredontamentos deverão seguir o padrão matémático.
+**Justificativa:** Garantir a exatidão e a justiça nos cálculos financeiros, assegurando que os centavos sejam tratados de forma padronizada e transparente nos valores pagos.
+**Regra afetada:** RN-011
 
 ---
 
@@ -560,19 +736,64 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 
 | Caso | Entrada | Comportamento esperado | Regra |
 |---|---|---|---|
-| | | | |
+| **Lançamento no limite exato da nota fiscal sem comprovante** | Despesa de R$ 100,00 com `tem_nota_fiscal = false`. | O sistema aprova o valor integral de R$ 100,00 e define o status como `aprovado`, pois a exigência de nota fiscal aplica-se apenas a valores estritamente superiores a R$ 100,00. | RN-004 |
+| **Lançamento acima de R$ 100,00 sem nota fiscal** | Despesa de R$ 100,01 com `tem_nota_fiscal = false`. | O sistema rejeita o reembolso e define o status como `rejeitado`. | RN-004 |
+| **Múltiplas refeições no mesmo dia totalizando acima do limite padrão** | Duas despesas de alimentação no mesmo dia (R$ 40,00 e R$ 30,00, total R$ 70,00) para colaborador que não está em viagem. | A primeira despesa de R$ 40,00 é aprovada integralmente. A segunda é aprovada parcialmente em R$ 20,00 (atingindo o teto diário de R$ 60,00) com status `parcial`. | RN-001, RN-005 |
+| **Hospedagem com fornecedor não reconhecido** | Despesa na categoria `hospedagem` no valor de R$ 200,00 com fornecedor "Residência Particular João". | O sistema rejeita a despesa com status `rejeitado`, pois o fornecedor não contém nenhuma das palavras-chave válidas (`hotel`, `airbnb`, `pousada`, `hostel`, `camping`) para caracterizar a viagem. | RN-003, RN-005 |
+| **Despesa em dia com limite ampliado de viagem (Viagem + Alimentação)** | Lançamento de hospedagem válida e gasto de R$ 85,00 em `alimentacao` no mesmo dia. | O sistema identifica a condição de viagem, amplia o limite diário de alimentação em 50% (de R$ 60,00 para R$ 90,00) e aprova o valor integral de R$ 85,00 com status `aprovado`. | RN-001, RN-005 |
+| **Registros idênticos com IDs distintos (Duplicatas)** | Dois lançamentos exatamente iguais (mesma data, categoria, fornecedor, descrição e valor), um com ID 101 e outro com ID 105. | O registro de ID 101 (mais antigo) é rejeitado por duplicidade. O registro de ID 105 (mais recente) é mantido para processamento das demais regras. | RN-007 |
+| **Despesa com data fora do período de competência** | Competência de 01/10/2026 a 31/10/2026 e despesa lançada na data 30/09/2026 ou 01/11/2026. | O sistema rejeita a despesa com status `rejeitado`. | RN-006 |
+| **Categoria com grafia ou acentuação diferente do padrão** | Despesa cadastrada como `alimentação` (com acento) ou `Hospedagem` (com maiúscula). | O sistema rejeita o lançamento com o status `rejeitado - categoria inválida`. | RN-008 |
+| **Lançamento com valor zerado ou negativo** | Despesa com valor R$ 0,00 ou -R$ 25,00. | O sistema rejeita o lançamento com status `rejeitado`. | RN-010 |
+| **Valor com mais de duas casas decimais** | Despesa cadastrada no valor de R$ 80,456. | O sistema aplica o arredondamento matemático padrão, ajustando o valor para R$ 80,46. | RN-011 |
+
 
 ## 8. Ordem de aplicação das regras
 
-<Quando duas regras incidem sobre a mesma despesa, qual vale primeiro? A ordem
-muda o resultado. Declarar isso separa spec boa de spec média.>
+Quando uma ou mais regras incidem sobre uma mesma despesa, a esteira de avaliação do motor de cálculo segue uma ordem sequencial rígida de execução. Caso a despesa seja rejeitada em uma etapa eliminatória inicial, o processamento para esse item é encerrado sem necessidade de avaliar os critérios subsequentes.
+
+A ordem de execução é:
+
+1. **Formatos e Validações de Entrada Gerais (RN-009, RN-010, RN-011):**
+   - **RN-009 (Formato da Vigência):** Verifica se a vigência do lote atende ao formato `YYYY-MM`. Se inválida, rejeita o processamento.
+   - **RN-010 (Valores Negativos):** Rejeita lançamentos com valores negativos.
+   - **RN-011 (Precisão Decimal):** Ajusta e padroniza os valores para 2 casas decimais via arredondamento matemático.
+
+2. **Filtro de Categorias Permitidas (RN-008):**
+   - Valida se a categoria informada é exatamente uma das 4 permitidas (`alimentacao`, `coworking`, `hospedagem`, `transporte_urbano`). Se for inválida, atribui status `rejeitado - categoria inválida` e encerra a verificação do item.
+
+3. **Deduplicação de Lançamentos (RN-007):**
+   - Identifica lançamentos idênticos e mantém apenas o registro com ID mais recente para a sequência da análise, rejeitando o registro mais antigo por duplicidade.
+
+4. **Validação do Período de Elegibilidade (RN-006):**
+   - Garante que a data da despesa esteja dentro da faixa do período de competência (`inicio` e `fim`). Se estiver fora, é rejeitada.
+
+5. **Identificação de Contexto de Viagem e Cálculo de Limites Ampliados (RN-005 e RN-003):**
+   - Avalia a presença da categoria `hospedagem` e das palavras-chave no fornecedor para determinar se o colaborador está em viagem.
+   - Se estiver em viagem, define os limites ampliados em 50% para `alimentacao` (R$ 90,00/dia) e `transporte_urbano` (R$ 120,00/dia), além de contabilizar o número de diárias conforme a descrição.
+   - Valida a despesa da categoria `hospedagem` contra o limite diário de R$ 250,00 (RN-003).
+
+6. **Aplicação dos Limites de Categoria (RN-001 e RN-002):**
+   - Com base no contexto (viagem ou padrão), calcula o somatório diário das categorias `alimentacao` (RN-001) e `transporte_urbano` (RN-002) e aplica o teto de reembolso (`aprovado` para valores integrais dentro do limite ou `parcial` para excedentes ajustados ao teto).
+
+7. **Comprovação Fiscal (RN-004):**
+   - Para qualquer despesa aprovada ou parcial cujo valor seja superior a R$ 100,00, verifica a presença da nota fiscal (`tem_nota_fiscal = true`). Caso não possua, o status final é alterado para `rejeitado`.
 
 ## 9. Critérios de aceite
 
-O sistema está pronto quando:
+O sistema está pronto e aceito quando:
 
-- [ ] <critério verificável, sem ler código>
-- [ ] <...>
+- [ ] Dado um arquivo de despesas de entrada no formato JSON, o motor gera um arquivo JSON de saída no formato exato especificado no item 4, contendo a lista de colaboradores e o histórico de despesas processadas com os respectivos `status_item` e `valor_reembolsado`.
+- [ ] Todas as despesas da categoria `alimentacao` são reembolsadas integralmente se o acumulado diário for de até R$ 60,00 (ou R$ 90,00 se em viagem) e limitadas ao teto com status `parcial` se ultrapassarem esse valor.
+- [ ] Todas as despesas da categoria `transporte_urbano` são reembolsadas integralmente se o acumulado diário for de até R$ 80,00 (ou R$ 120,00 se em viagem) e limitadas ao teto com status `parcial` se ultrapassarem esse valor.
+- [ ] Lançamentos na categoria `hospedagem` com valor até R$ 250,00 e fornecedor contendo uma das palavras-chave (`hotel`, `airbnb`, `pousada`, `hostel`, `camping`) retornam o status `aprovado`.
+- [ ] Lançamentos na categoria `hospedagem` com fornecedores que não contêm as palavras-chave exigidas retornam o status `rejeitado`.
+- [ ] Qualquer despesa com valor superior a R$ 100,00 que não possua nota fiscal (`tem_nota_fiscal = false`) é classificada como `rejeitado`.
+- [ ] Despesas idênticas enviadas em duplicidade preservam o registro de ID mais recente para processamento e marcam o registro antigo como `rejeitado`.
+- [ ] Qualquer despesa com data fora do intervalo de início e fim da competência informada retorna o status `rejeitado`.
+- [ ] Qualquer categoria diferente de `alimentacao`, `coworking`, `hospedagem` e `transporte_urbano` (respeitando caixa baixa e ausência de acentuação) retorna o status `rejeitado - categoria inválida`.
+- [ ] Lançamentos com valores negativos ou zerados retornam o status `rejeitado`.
+- [ ] Todos os valores financeiros de reembolso na saída são apresentados em formato numérico com exatamente duas casas decimais e arredondamento matemático correto.
 
 ## 10. O que fica em aberto
 
