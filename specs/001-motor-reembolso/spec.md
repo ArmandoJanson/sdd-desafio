@@ -818,3 +818,14 @@ Decisões tomadas ao implementar o motor (T-005 a T-012 e T-021). As marcadas co
 - **Despesa rejeitada não consome teto — Confirmada:** despesas rejeitadas por qualquer regra, inclusive por falta de nota fiscal (RN-004), não entram no acumulado do dia. O resultado de cada despesa rejeitada é o mesmo da ordem da seção 8; só muda o que sobra de teto para as demais.
 - **ID mais recente (RN-007) — Confirmada:** a comparação trata os trechos numéricos do id como números (`d-9` é anterior a `d-10`). Se houver empate, vale a despesa que aparece por último no arquivo. Com três ou mais duplicatas, só a mais recente é mantida. Só participam da comparação despesas que passaram por RN-010 e RN-008.
 - **Nota fiscal (RN-004):** a regra olha o valor da despesa (não o reembolsado) e se aplica a todas as categorias, inclusive hospedagem.
+
+Decisões tomadas ao implementar a consolidação e a validação dos arquivos (T-013, T-014 e T-022):
+
+- **Reenvio de despesas — Decidida:** um novo envio para o mesmo colaborador, centro de custo e competência é somado ao que já foi carregado, sem duplicar lançamentos. A despesa é identificada pelo seu id. Despesas idênticas com ids diferentes são mantidas, porque quem as julga é a RN-007 na validação.
+- **Mesmo id, conteúdo diferente — Decidida:** o sistema interrompe o processamento, não grava nada (nem as despesas novas do mesmo envio) e informa quais ids já existem, pedindo que o usuário ajuste a informação e envie de novo.
+- **Mesmo id, conteúdo idêntico — Provisória:** é ignorado, para que reenviar o mesmo arquivo (ou um arquivo parcialmente repetido) seja seguro.
+- **Competência já validada — Decidida:** não aceita novos envios nem nova validação; o sistema informa o erro e nada é gravado.
+- **Cabeçalho do reenvio — Decidida:** nome do colaborador e início e fim do período do arquivo já carregado prevalecem; o reenvio só acrescenta despesas.
+- **Competência inválida no carregamento (RN-009) — Provisória:** o arquivo é recusado já ao ser carregado, sem ser gravado.
+- **Falhas ao validar — Provisória:** o resultado é gravado antes de marcar a competência como validada; se marcar falhar (arquivo bloqueado, após poucas tentativas), o resultado é removido e a competência segue não validada, podendo ser validada de novo.
+- **Arquivos corrompidos — Provisória:** arquivo com JSON malformado ou campos obrigatórios ausentes nunca é sobrescrito nem validado; o sistema informa o erro e as demais competências continuam utilizáveis.
