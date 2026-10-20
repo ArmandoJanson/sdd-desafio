@@ -1,0 +1,8 @@
+pydantic>=2.0
+
+# desenvolvimento / testes
+pytest>=8.0
+pytest-cov>=5.0
+black
+isort
+flake8
