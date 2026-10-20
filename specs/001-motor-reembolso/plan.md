@@ -59,12 +59,15 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 │   │   ├── repository.py                 # Leitura, escrita atômica e nomenclatura de arquivos
 │   │   └── service.py                    # Consolidação, validação e transição de estado
 │   ├── ui/                               # Frontend da aplicação
-│   │   ├── static/                       # CSS, JavaScript e assets
+│   │   ├── controller.py                 # API exposta à ponte JS (respostas {ok, ...})
+│   │   ├── static/                       # style.css e app.js (puros, sem frameworks)
 │   │   └── index.html                    # Interface gráfica desktop
 │   ├── app.py                            # Ponto de entrada PyWebView
 │   └── config.py                         # Definição de caminhos e parâmetros globais
 ├── tests/                                # Testes unitários e de integração
 │   ├── test_engine.py                    # Testes de regras de negócio
+│   ├── test_controller.py                # Testes da API do controller (sem janela)
+│   ├── test_app.py                       # Ponto de entrada e fiação estática do frontend
 │   ├── test_repository.py                # Testes de leitura, escrita e nomenclatura
 │   └── test_service.py                   # Testes de consolidação, validação e erros de I/O
 ├── spec.md                               # Especificação funcional das regras de negócio
@@ -104,6 +107,18 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 2. O botão "Resultado" exibe a auditoria completa gerada.
 
 ---
+
+### 4.4. API do Controller (ponte PyWebView)
+
+Métodos públicos de `Controller` (únicos expostos ao JS); todos devolvem `dict` serializável em JSON com `ok` e, em falha prevista, `erro` com a mensagem em português:
+
+- `selecionar_arquivo()`: abre o diálogo de arquivo (injetado por `app.py`); `caminho` é `null` se cancelar.
+- `avaliar_reembolso(caminho_json)`: carrega e consolida o JSON escolhido.
+- `listar_colaboradores_competencias()`: colaboradores com competências, indicador `validado`, `tem_resultado` e `corrompido`.
+- `validar_competencia(id, centro_custo, competencia)`: audita, grava o resultado e renomeia.
+- `obter_resultado(id, centro_custo, competencia)`: auditoria gravada; valores monetários como texto com duas casas.
+
+O `Controller` não importa `webview`, o que permite testá-lo sem abrir a janela.
 
 ## 5. Modelo de Dados
 
@@ -148,6 +163,7 @@ class ItemAuditoria(BaseModel):
     id: str; data: date; descricao: str
     fornecedor: str                                # minúsculas
     status_item: str                               # "aprovado", "parcial", "rejeitado", ...
+    justificativa: str                             # motivo curto, cita a regra (RN-NNN)
     valor_reembolsado: Decimal                     # 2 casas
 
 class HistoricoCompetencia(BaseModel):
