@@ -38,7 +38,7 @@ def _para_decimal(valor: Any) -> Decimal:
     return decimal
 
 
-def _arredondar_centavos(valor: Decimal) -> Decimal:
+def arredondar_centavos(valor: Decimal) -> Decimal:
     """Duas casas decimais, arredondamento matemático (RN-011)."""
     try:
         arredondado = valor.quantize(CENTAVOS, rounding=ROUND_HALF_UP)
@@ -64,7 +64,7 @@ def _para_data(valor: Any) -> date:
 Dinheiro = Annotated[
     Decimal,
     BeforeValidator(_para_decimal),
-    AfterValidator(_arredondar_centavos),
+    AfterValidator(arredondar_centavos),
 ]
 Data = Annotated[date, BeforeValidator(_para_data)]
 # Fornecedor é normalizado para minúsculas (spec.md, seção 4 e RN-003).
