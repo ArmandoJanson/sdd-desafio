@@ -114,36 +114,37 @@ Exemplo da saída:
 
 **Origem:** política do RH, item `1` e `4`
 **Aceite:** 
-    **Cenário 1**: Despesa(s) abaixo do limite
 
-        Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 45,00 (valor < R$ 60,00),
+ **Cenário 1:** Despesa(s) abaixo do limite
 
-        Quando o sistema processar a solicitação de reembolso,
+    Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 45,00 (valor < R$ 60,00),
 
-        Então o sistema deve aprovar o reembolso no valor integral de R$ 45,00 e retornar o status aprovado.
+    Quando o sistema processar a solicitação de reembolso,
 
-    **Cenário 2**: Despesa(s) exatamente no limite
+    Então o sistema deve aprovar o reembolso no valor integral de R$ 45,00 e retornar o status aprovado.
 
-        Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 60,00 (valor = R$ 60,00),
+**Cenário 2**: Despesa(s) exatamente no limite
 
-        Quando o sistema processar a solicitação de reembolso,
+    Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 60,00 (valor = R$ 60,00),
 
-        Então o sistema deve aprovar o reembolso no valor integral de R$ 60,00 e retornar o status aprovado.
+    Quando o sistema processar a solicitação de reembolso,
 
-    **Cenário 3**: Despesa(s) acima do limite (Reembolso Parcial)
+    Então o sistema deve aprovar o reembolso no valor integral de R$ 60,00 e retornar o status aprovado.
 
-        Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 85,00 (valor > R$ 60,00),
+**Cenário 3**: Despesa(s) acima do limite (Reembolso Parcial)
 
-        Quando o sistema processar a solicitação de reembolso,
+    Dado que o colaborador cadastre uma ou mais despesas na categoria alimentação no mesmo dia somando R$ 85,00 (valor > R$ 60,00),
 
-        Então o sistema deve limitar o reembolso ao teto de R$ 60,00 e retornar o status parcial.
+    Quando o sistema processar a solicitação de reembolso,
 
-    **Cenário **:Despesa de outra categoria não deve ser validada por esta regra
-        Dado que foi lançada uma despesa com categoria diferente de alimentacao
+    Então o sistema deve limitar o reembolso ao teto de R$ 60,00 e retornar o status parcial.
 
-        Quando a RN-001 for executada
+**Cenário 4**:Despesa de outra categoria não deve ser validada por esta regra
+    Dado que foi lançada uma despesa com categoria diferente de alimentacao
 
-        Então a regra não deve retornar nenhum status e o fluxo deve prosseguir para a verificação da próxima regra.
+    Quando a RN-001 for executada
+
+    Então a regra não deve retornar nenhum status e o fluxo deve prosseguir para a verificação da próxima regra.
 
 ### RN-002 — Limite das despesas com transporte
 
@@ -797,5 +798,12 @@ O sistema está pronto e aceito quando:
 
 ## 10. O que fica em aberto
 
-<Perguntas que você não conseguiu responder e a decisão provisória que tomou.
-Honestidade aqui vale ponto — spec que finge não ter buraco é spec que esconde buraco.>
+Decisões provisórias tomadas ao implementar os modelos (T-002/T-003); a spec deve confirmá-las ou corrigi-las.
+
+- **Formato da saída (seção 4):** a tabela define `colaborador` e `historico_despesas[]` como campos irmãos, mas o exemplo aninha `historico_despesas` dentro de `colaborador`, envolve tudo em uma lista, omite `centro_custo` no histórico e é JSON inválido (vírgulas e chaves). **Provisório:** segue a tabela (`colaborador` e `historico_despesas` no mesmo nível, um objeto por colaborador). O empacotamento em lista (critério de aceite 1, "lista de colaboradores") fica para a task do motor.
+- **`fornecedor` em minúsculas:** a tabela manda normalizar, mas o exemplo de saída mostra "Restaurante Tavola". **Provisório:** normaliza para minúsculas na entrada e na saída.
+- **Status por duplicidade (RN-007):** o texto admite "rejeitado por duplicidade" ou apenas "rejeitado". **Provisório:** `status_item` é texto livre no schema; o valor exato será fixado em T-012.
+- **Competência nula (RN-009, cenário 04):** o campo é obrigatório, mas `null` e `""` precisam chegar ao motor para serem rejeitados. **Provisório:** o schema aceita `null`; a chave deve existir. Sem competência não há como nomear o arquivo, então o repositório recusa gravar.
+- **Arredondamento × RN-010:** a seção 8 executa RN-010 antes de RN-011. Um valor como 0,004 é positivo, mas arredonda para 0,00. **Provisório:** o arredondamento ocorre no parsing, então o motor o enxerga como zero e rejeita.
+- **`id` do colaborador com `_`:** a listagem por prefixo (plan 4.2) separa o id no primeiro `_`. **Provisório:** o repositório recusa ids com `_`.
+- **Categoria `coworking` (RN-008):** é aceita como categoria, mas nenhuma regra define limite ou tratamento para ela. Fica em aberto; não foi suposto nenhum limite.
