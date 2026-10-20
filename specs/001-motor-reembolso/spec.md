@@ -537,7 +537,7 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 ### RN-009 — Vigência deve seguir o formato "YYYY-MM"
 
 **Regra:** 
-    O formato da vigência seguir o padrão "YYYY-MM", onde o "YYYY" representa o ano e o "MM" representa o mês. Se a vigência não estiver válida, o processamento do registro de despesa deverá ser rejeitado.
+    A competência (vigência) deve seguir o padrão "YYYY-MM", onde o "YYYY" representa o ano e o "MM" representa o mês. Se a competência não for válida, o arquivo de despesas é recusado: o sistema não avalia nenhuma despesa, não gera resultado de auditoria e informa o erro de formato.
 
 **Origem:** política do RH, item `7`
 **Aceite:** 
@@ -548,7 +548,7 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 
         Então o sistema deve reconhecer o formato como válido (ano com 4 dígitos e mês válido entre 01 e 12) e permitir o prosseguimento do registro para o fluxo das demais regras.
 
-    **Cenário 02** — Vigência com formato incorreto / separador inválido (Rejeitado)
+    **Cenário 02** — Vigência com formato incorreto / separador inválido (Arquivo recusado)
         Dado um lançamento de despesa no qual o campo vigencia foi informado em um dos seguintes formatos incorretos:
 
         "10/2026" (formato MM/YYYY)
@@ -561,21 +561,21 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
 
         Quando o sistema avaliar o campo vigencia contra a mascara "YYYY-MM";
 
-        Então o sistema deve rejeitar o processamento do registro e retornar o status rejeitado.
+        Então o sistema deve recusar o arquivo, sem avaliar as despesas nem gerar resultado, e informar que a competência não segue o formato YYYY-MM.
 
-    **Cenário 03** — Vigência com mês numérico inválido (Rejeitado)
+    **Cenário 03** — Vigência com mês numérico inválido (Arquivo recusado)
         Dado um lançamento de despesa no qual o campo vigencia possui 4 dígitos no ano e 2 no mês, porém com valor de mês fora do intervalo de 01 a 12 (ex.: "2026-13" ou "2026-00");
 
         Quando o sistema validar a consistência da data informada na regra;
 
-        Então o sistema deve identificar a data como inválida e retornar o status rejeitado.
+        Então o sistema deve identificar a data como inválida, recusar o arquivo e informar o erro de formato.
 
-    **Cenário 04** — Vigência não informada ou nula (Rejeitado)
+    **Cenário 04** — Vigência não informada ou nula (Arquivo recusado)
         Dado um lançamento de despesa no qual o campo vigencia encontra-se vazio ("") ou nulo (null);
 
         Quando o sistema processar a validação da RN-009;
 
-        Então a regra não é atendida e o sistema deve rejeitar o processamento retornando o status rejeitado.
+        Então a regra não é atendida e o sistema deve recusar o arquivo, sem gerar resultado, e informar o erro de formato.
 
 ### RN-010 — Tratamento de Valores Negativos
 
@@ -756,7 +756,7 @@ Quando uma ou mais regras incidem sobre uma mesma despesa, a esteira de avaliaç
 A ordem de execução é:
 
 1. **Formatos e Validações de Entrada Gerais (RN-009, RN-010, RN-011):**
-   - **RN-009 (Formato da Vigência):** Verifica se a vigência do lote atende ao formato `YYYY-MM`. Se inválida, rejeita o processamento.
+   - **RN-009 (Formato da Vigência):** Verifica se a vigência do lote atende ao formato `YYYY-MM`. Se inválida, recusa o arquivo e encerra, sem gerar resultado.
    - **RN-010 (Valores Negativos):** Rejeita lançamentos com valores negativos.
    - **RN-011 (Precisão Decimal):** Ajusta e padroniza os valores para 2 casas decimais via arredondamento matemático.
 
@@ -790,7 +790,7 @@ O sistema está pronto e aceito quando:
 - [ ] Lançamentos na categoria `hospedagem` com valor até R$ 250,00 e fornecedor contendo uma das palavras-chave (`hotel`, `airbnb`, `pousada`, `hostel`, `camping`) retornam o status `aprovado`.
 - [ ] Lançamentos na categoria `hospedagem` com fornecedores que não contêm as palavras-chave exigidas retornam o status `rejeitado`.
 - [ ] Qualquer despesa com valor superior a R$ 100,00 que não possua nota fiscal (`tem_nota_fiscal = false`) é classificada como `rejeitado`.
-- [ ] Despesas idênticas enviadas em duplicidade preservam o registro de ID mais recente para processamento e marcam o registro antigo como `rejeitado`.
+- [ ] Despesas idênticas enviadas em duplicidade preservam o registro de ID mais recente para processamento e marcam o registro antigo como `rejeitado - duplicidade`.
 - [ ] Qualquer despesa com data fora do intervalo de início e fim da competência informada retorna o status `rejeitado`.
 - [ ] Qualquer categoria diferente de `alimentacao`, `coworking`, `hospedagem` e `transporte_urbano` (respeitando caixa baixa e ausência de acentuação) retorna o status `rejeitado - categoria inválida`.
 - [ ] Lançamentos com valores negativos ou zerados retornam o status `rejeitado`.
@@ -802,8 +802,19 @@ Decisões provisórias tomadas ao implementar os modelos (T-002/T-003); a spec d
 
 - **Formato da saída (seção 4):** a tabela define `colaborador` e `historico_despesas[]` como campos irmãos, mas o exemplo aninha `historico_despesas` dentro de `colaborador`, envolve tudo em uma lista, omite `centro_custo` no histórico e é JSON inválido (vírgulas e chaves). **Provisório:** segue a tabela (`colaborador` e `historico_despesas` no mesmo nível, um objeto por colaborador). O empacotamento em lista (critério de aceite 1, "lista de colaboradores") fica para a task do motor.
 - **`fornecedor` em minúsculas:** a tabela manda normalizar, mas o exemplo de saída mostra "Restaurante Tavola". **Provisório:** normaliza para minúsculas na entrada e na saída.
-- **Status por duplicidade (RN-007):** o texto admite "rejeitado por duplicidade" ou apenas "rejeitado". **Provisório:** `status_item` é texto livre no schema; o valor exato será fixado em T-012.
-- **Competência nula (RN-009, cenário 04):** o campo é obrigatório, mas `null` e `""` precisam chegar ao motor para serem rejeitados. **Provisório:** o schema aceita `null`; a chave deve existir. Sem competência não há como nomear o arquivo, então o repositório recusa gravar.
+- **Status por duplicidade (RN-007):** o texto admite "rejeitado por duplicidade" ou apenas "rejeitado". **Decidido (19/10/2026):** o registro antigo recebe o status `rejeitado - duplicidade`, no mesmo padrão de `rejeitado - categoria inválida`, para deixar o motivo visível na auditoria.
+- **Competência nula (RN-009, cenário 04):** o campo é obrigatório, mas `null` e `""` precisam chegar ao motor para que o arquivo seja recusado. **Provisório:** o schema aceita `null`; a chave deve existir. Sem competência não há como nomear o arquivo, então o repositório recusa gravar.
 - **Arredondamento × RN-010:** a seção 8 executa RN-010 antes de RN-011. Um valor como 0,004 é positivo, mas arredonda para 0,00. **Provisório:** o arredondamento ocorre no parsing, então o motor o enxerga como zero e rejeita.
 - **`id` do colaborador com `_`:** a listagem por prefixo (plan 4.2) separa o id no primeiro `_`. **Provisório:** o repositório recusa ids com `_`.
-- **Categoria `coworking` (RN-008):** é aceita como categoria, mas nenhuma regra define limite ou tratamento para ela. Fica em aberto; não foi suposto nenhum limite.
+- **Categoria `coworking` (RN-008) — Confirmada:** é aceita como categoria, mas nenhuma regra define limite para ela. Fica sem limite; é reembolsada integralmente se passar nas demais regras (período, duplicidade, nota fiscal).
+
+Decisões tomadas ao implementar o motor (T-005 a T-012 e T-021). As marcadas como **Confirmada** foram validadas com o responsável pelo produto em 19/10/2026; as demais seguem provisórias.
+
+- **Competência inválida (RN-009) — Decidida:** o arquivo é recusado e o motor não gera auditoria nem status por despesa; o sistema informa o erro de formato. Os cenários da RN-009 descrevem essa recusa. A competência não é conferida contra `inicio` e `fim`.
+- **Limite de hospedagem (RN-003) — Confirmada:** o texto original fala em "R$ 250 por diária". **Provisório:** o teto de uma despesa de hospedagem é R$ 250,00 multiplicado pelo número de diárias lido da descrição; acima disso, `parcial` com o teto. Hospedagem não recebe a ampliação de 50%.
+- **Número de diárias (RN-003, RN-005):** é o primeiro número inteiro da descrição; sem número (ou com zero), vale 1.
+- **Duração da viagem (RN-005) — Confirmada:** a viagem começa na data da despesa de hospedagem (com fornecedor reconhecido, que passou por RN-010, RN-008, RN-007 e RN-006) e dura N dias quando a descrição fala em diárias, ou N + 1 dias quando fala em noites (cenário 04). Sem número, dura 1 dia. A viagem existe mesmo que a hospedagem seja depois rejeitada por falta de nota fiscal. Em dia de viagem, os tetos diários de `alimentacao` e `transporte_urbano` valem ×1,5; vários dias de viagem se sobrepondo não ampliam mais de uma vez.
+- **Consumo do teto diário (RN-001, RN-002) — Confirmada:** as despesas do mesmo dia e categoria consomem o teto na ordem em que aparecem no arquivo (caso de borda da seção 7). Despesa com teto já esgotado sai `rejeitado` com 0,00, pois nada é pago; `parcial` exige algum valor pago.
+- **Despesa rejeitada não consome teto — Confirmada:** despesas rejeitadas por qualquer regra, inclusive por falta de nota fiscal (RN-004), não entram no acumulado do dia. O resultado de cada despesa rejeitada é o mesmo da ordem da seção 8; só muda o que sobra de teto para as demais.
+- **ID mais recente (RN-007) — Confirmada:** a comparação trata os trechos numéricos do id como números (`d-9` é anterior a `d-10`). Se houver empate, vale a despesa que aparece por último no arquivo. Com três ou mais duplicatas, só a mais recente é mantida. Só participam da comparação despesas que passaram por RN-010 e RN-008.
+- **Nota fiscal (RN-004):** a regra olha o valor da despesa (não o reembolsado) e se aplica a todas as categorias, inclusive hospedagem.
