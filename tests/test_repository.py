@@ -210,6 +210,7 @@ class TestSalvar:
                                 "descricao": "x",
                                 "fornecedor": "y",
                                 "status_item": "aprovado",
+                                "justificativa": "Despesa aprovada integralmente.",
                                 "valor_reembolsado": 38,
                             }
                         ],

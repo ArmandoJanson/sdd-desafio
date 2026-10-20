@@ -65,6 +65,7 @@ def resultado_dict():
                         "descricao": "Almoco com cliente",
                         "fornecedor": "Restaurante Tavola",
                         "status_item": "parcial",
+                        "justificativa": "Despesa aprovada integralmente.",
                         "valor_reembolsado": 60,
                     }
                 ],
@@ -135,6 +136,12 @@ class TestParsing:
         assert item.status_item == "parcial"
         assert item.valor_reembolsado == Decimal("60.00")
 
+    def test_justificativa_nao_pode_ser_vazia(self):
+        dados = resultado_dict()["historico_despesas"][0]["despesas"][0]
+        dados["justificativa"] = ""
+        with pytest.raises(ValidationError):
+            ItemAuditoria.model_validate(dados)
+
     def test_item_auditoria_aceita_status_composto(self):
         item = ItemAuditoria(
             id="d-1",
@@ -142,6 +149,7 @@ class TestParsing:
             descricao="x",
             fornecedor="y",
             status_item="rejeitado - categoria inválida",
+            justificativa="Despesa aprovada integralmente.",
             valor_reembolsado=0,
         )
         assert item.status_item == "rejeitado - categoria inválida"
@@ -160,6 +168,7 @@ class TestFornecedor:
             descricao="x",
             fornecedor="Restaurante Tavola",
             status_item="aprovado",
+            justificativa="Despesa aprovada integralmente.",
             valor_reembolsado=1,
         )
         assert item.fornecedor == "restaurante tavola"
@@ -220,6 +229,7 @@ class TestDinheiro:
             descricao="x",
             fornecedor="y",
             status_item="aprovado",
+            justificativa="Despesa aprovada integralmente.",
             valor_reembolsado=60,
         )
         assert str(item.valor_reembolsado) == "60.00"
@@ -375,7 +385,7 @@ class TestSchema:
             SolicitacaoReembolso.model_validate_json("{nao e json")
 
     @pytest.mark.parametrize(
-        "campo", ["id", "data", "status_item", "valor_reembolsado"]
+        "campo", ["id", "data", "status_item", "justificativa", "valor_reembolsado"]
     )
     def test_item_auditoria_campo_obrigatorio(self, campo):
         dados = resultado_dict()["historico_despesas"][0]["despesas"][0]

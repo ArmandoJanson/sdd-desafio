@@ -575,9 +575,12 @@ class TestRN003Hospedagem:
     @pytest.mark.req("RN-003")
     def test_avaliar_hospedagem(self):
         despesa = Despesa(**hospedagem(valor="300"))
-        assert rules.avaliar_hospedagem(despesa) == (PARCIAL, Decimal("250.00"))
+        status, valor, justificativa = rules.avaliar_hospedagem(despesa)
+        assert (status, valor) == (PARCIAL, Decimal("250.00"))
+        assert "RN-003" in justificativa
         sem_hotel = Despesa(**hospedagem(valor="300", fornecedor="Casa"))
-        assert rules.avaliar_hospedagem(sem_hotel) == (REJEITADO, Decimal("0.00"))
+        status, valor, _ = rules.avaliar_hospedagem(sem_hotel)
+        assert (status, valor) == (REJEITADO, Decimal("0.00"))
 
 
 class TestRN005Diarias:
@@ -1062,3 +1065,105 @@ def test_motor_nao_depende_de_io_nem_de_interface():
                 importados.add(no.module.split(".")[0])
         assert not (importados & proibidos), (arquivo.name, importados & proibidos)
         assert "open(" not in arquivo.read_text("utf-8"), arquivo.name
+
+
+# --------------------------------------------------------------------------
+# T-023 — justificativa por item
+# --------------------------------------------------------------------------
+
+
+def justificativas(despesas, **periodo):
+    resultado = engine.avaliar(solicitacao(despesas, **periodo))
+    return [i.justificativa for i in itens(resultado)]
+
+
+def test_justificativa_por_item():
+    entrada = SolicitacaoReembolso.model_validate_json(EXEMPLO.read_text("utf-8"))
+    resultado = engine.avaliar(entrada)
+    textos = {i.id: i.justificativa for i in itens(resultado)}
+    assert all(texto.strip() for texto in textos.values())
+    assert "RN-001" in textos["d-001"] and "R$ 60,00" in textos["d-001"]
+    assert "consumido" in textos["d-002"]
+    assert "RN-004" in textos["d-004"]
+    assert "RN-007" in textos["d-006"]
+    assert "RN-006" in textos["d-008"]
+    assert "RN-010" in textos["d-009"]
+    assert "RN-008" in textos["d-014"]
+    assert textos["d-005"] == rules.JUSTIFICATIVA_APROVADO
+
+
+class TestJustificativas:
+    def test_aprovado(self):
+        assert justificativas([d()]) == [rules.JUSTIFICATIVA_APROVADO]
+
+    def test_teto_parcial_alimentacao_e_transporte(self):
+        (a,) = justificativas([d(valor="85")])
+        assert a == "Valor limitado ao teto de R$ 60,00 (RN-001)."
+        (t,) = justificativas([d(categoria="transporte_urbano", valor="105")])
+        assert t == "Valor limitado ao teto de R$ 80,00 (RN-002)."
+
+    def test_teto_esgotado(self):
+        _, segunda = justificativas([d("1", valor="60"), d("2", valor="5")])
+        assert segunda == (
+            "Teto diário de R$ 60,00 já consumido por outras despesas do dia (RN-001)."
+        )
+
+    def test_viagem_cita_a_ampliacao(self):
+        resultado = justificativas(
+            [hospedagem(), d("c", valor="110", data="2026-10-10")]
+        )
+        assert resultado[1] == (
+            "Valor limitado ao teto de R$ 90,00 "
+            "(RN-001, ampliado em 50% por viagem (RN-005))."
+        )
+
+    def test_hospedagem_parcial_com_varias_diarias(self):
+        (texto,) = justificativas([hospedagem(descricao="2 diarias", valor="520")])
+        assert texto == (
+            "Valor limitado ao teto de R$ 500,00 (RN-003, R$ 250,00 por diária x 2)."
+        )
+
+    def test_hospedagem_parcial_de_uma_diaria(self):
+        (texto,) = justificativas([hospedagem(valor="300")])
+        assert texto == "Valor limitado ao teto de R$ 250,00 (RN-003)."
+
+    def test_hospedagem_sem_fornecedor_reconhecido(self):
+        (texto,) = justificativas([hospedagem(fornecedor="Casa")])
+        assert texto == rules.JUSTIFICATIVA_FORNECEDOR_HOSPEDAGEM
+
+    def test_hospedagem_aprovada(self):
+        assert justificativas([hospedagem(valor="100")]) == [
+            rules.JUSTIFICATIVA_APROVADO
+        ]
+
+    def test_rejeicoes_citam_a_regra(self):
+        casos = {
+            "RN-010": d(valor="-1"),
+            "RN-008": d(categoria="x"),
+            "RN-006": d(data="2026-11-01"),
+            "RN-004": d(valor="120", nf=False),
+        }
+        for regra, despesa in casos.items():
+            (texto,) = justificativas([despesa])
+            assert regra in texto, regra
+
+    def test_duplicidade(self):
+        antiga, _ = justificativas([d("1"), d("2")])
+        assert antiga == rules.JUSTIFICATIVA_DUPLICIDADE
+
+    def test_coworking_aprovado(self):
+        assert justificativas([d(categoria="coworking")]) == [
+            rules.JUSTIFICATIVA_APROVADO
+        ]
+
+    @pytest.mark.parametrize(
+        "valor, esperado",
+        [
+            ("60", "R$ 60,00"),
+            ("0.5", "R$ 0,50"),
+            ("1234.5", "R$ 1.234,50"),
+            ("1234567.89", "R$ 1.234.567,89"),
+        ],
+    )
+    def test_formatar_moeda(self, valor, esperado):
+        assert rules.formatar_moeda(Decimal(valor)) == esperado
