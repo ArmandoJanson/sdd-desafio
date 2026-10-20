@@ -63,6 +63,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border-radius: var(--raio);
   border: 1px solid var(--borda);
   background: var(--superficie);
+  white-space: pre-line; /* respeita as quebras de linha das mensagens */
 }
 .mensagem.sucesso { background: var(--ok-fundo); border-color: #a6dfbd; color: var(--ok); }
 .mensagem.erro { background: var(--erro-fundo); border-color: #f4b6b0; color: var(--erro); }
@@ -111,7 +112,7 @@ td.acoes { display: flex; gap: 8px; flex-wrap: wrap; }
 .selo.validado, .selo.aprovado { background: var(--ok-fundo); color: var(--ok); }
 .selo.pendente, .selo.parcial { background: var(--atencao-fundo); color: var(--atencao); }
 .selo.corrompido, .selo.rejeitado { background: var(--erro-fundo); color: var(--erro); }
-.erro-detalhe { display: block; margin-top: 4px; font-size: 0.8rem; color: var(--erro); }
+.erro-detalhe { display: block; white-space: pre-line; margin-top: 4px; font-size: 0.8rem; color: var(--erro); }
 
 dialog {
   width: min(1000px, 94vw);

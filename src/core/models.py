@@ -50,15 +50,15 @@ def arredondar_centavos(valor: Decimal) -> Decimal:
 def _para_data(valor: Any) -> date:
     """Aceita somente datas no formato ``YYYY-MM-DD`` (ou ``date`` puro)."""
     if isinstance(valor, datetime):
-        raise ValueError("esperado data (YYYY-MM-DD), recebido data e hora")
+        raise ValueError("informe somente a data (AAAA-MM-DD), sem horário")
     if isinstance(valor, date):
         return valor
     if not isinstance(valor, str) or not _DATA_ISO.match(valor):
-        raise ValueError("data deve estar no formato YYYY-MM-DD")
+        raise ValueError(f"a data {valor!r} deve estar no formato AAAA-MM-DD")
     try:
         return date.fromisoformat(valor)
     except ValueError:
-        raise ValueError(f"data inexistente: {valor!r}") from None
+        raise ValueError(f"a data {valor!r} não existe no calendário") from None
 
 
 Dinheiro = Annotated[

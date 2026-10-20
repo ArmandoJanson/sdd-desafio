@@ -184,11 +184,88 @@ def ler_json(caminho: Path) -> Any:
     except FileNotFoundError as erro:
         raise ArquivoNaoEncontradoError(f"arquivo não encontrado: {caminho}") from erro
     except UnicodeDecodeError as erro:
-        raise ArquivoCorrompidoError(f"arquivo não é UTF-8: {caminho}") from erro
+        raise ArquivoCorrompidoError(
+            f"O arquivo '{caminho.name}' não está em UTF-8 e não pode ser lido."
+        ) from erro
     try:
         return json.loads(texto, parse_float=Decimal)
     except json.JSONDecodeError as erro:
-        raise ArquivoCorrompidoError(f"JSON malformado em {caminho}: {erro}") from erro
+        raise ArquivoCorrompidoError(
+            f"O arquivo '{caminho.name}' está malformado: não é um JSON válido "
+            f"(erro na linha {erro.lineno}, coluna {erro.colno})."
+        ) from erro
+
+
+# --------------------------------------------------------------------------
+# Mensagens de validação em português
+# --------------------------------------------------------------------------
+
+MAXIMO_PROBLEMAS_NA_MENSAGEM = 5
+
+_ROTULOS_DE_SECAO = {"periodo": "Período", "colaborador": "Colaborador"}
+
+_MOTIVOS_POR_TIPO = {
+    "missing": "campo obrigatório não informado",
+    "string_too_short": "não pode ficar vazio",
+    "string_type": "deve ser um texto",
+    "bool_type": "deve ser verdadeiro ou falso",
+    "list_type": "deve ser uma lista",
+    "dict_type": "deve ser um objeto",
+    "model_type": "deve ser um objeto",
+}
+
+
+def _id_da_despesa(dados: Any, indice: int) -> Optional[str]:
+    try:
+        identificador = dados["despesas"][indice]["id"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    return identificador if isinstance(identificador, str) and identificador else None
+
+
+def _descrever_local(local: tuple, dados: Any) -> str:
+    if not local:
+        return "Conteúdo do arquivo"
+    secao, resto = local[0], local[1:]
+    if secao == "despesas" and not resto:
+        return "Lista de despesas"
+    if secao == "despesas":
+        indice, campo = resto[0], resto[1:]
+        rotulo = f"Despesa nº {indice + 1}"
+        identificador = _id_da_despesa(dados, indice)
+        if identificador:
+            rotulo += f" (id {identificador})"
+    elif secao in _ROTULOS_DE_SECAO:
+        rotulo, campo = _ROTULOS_DE_SECAO[secao], resto
+    else:
+        return f"Campo '{'.'.join(str(parte) for parte in local)}'"
+    if campo:
+        rotulo += f", campo '{'.'.join(str(parte) for parte in campo)}'"
+    return rotulo
+
+
+def _descrever_motivo(problema: dict) -> str:
+    if problema["type"] == "value_error":
+        return str(problema["ctx"]["error"])
+    if problema["type"] == "model_type" and not problema["loc"]:
+        return "o conteúdo deve ser um objeto com colaborador, periodo e despesas"
+    return _MOTIVOS_POR_TIPO.get(problema["type"], "valor inválido")
+
+
+def descrever_erros_de_validacao(
+    erro: ValidationError, dados: Any, nome_arquivo: str
+) -> str:
+    """Traduz os erros do Pydantic para uma mensagem em português e sem jargão."""
+    problemas = erro.errors()
+    linhas = [
+        f"• {_descrever_local(p['loc'], dados)}: {_descrever_motivo(p)}."
+        for p in problemas[:MAXIMO_PROBLEMAS_NA_MENSAGEM]
+    ]
+    restantes = len(problemas) - MAXIMO_PROBLEMAS_NA_MENSAGEM
+    if restantes > 0:
+        linhas.append(f"• … e mais {restantes} problema(s).")
+    cabecalho = f"O arquivo '{nome_arquivo}' tem dados inválidos:"
+    return cabecalho + "\n" + "\n".join(linhas)
 
 
 # --------------------------------------------------------------------------
@@ -232,7 +309,9 @@ def ler_modelo(caminho: Path, tipo: Type[ModeloT]) -> ModeloT:
     try:
         return tipo.model_validate(dados)
     except ValidationError as erro:
-        raise ArquivoCorrompidoError(f"schema inválido em {caminho}: {erro}") from erro
+        raise ArquivoCorrompidoError(
+            descrever_erros_de_validacao(erro, dados, Path(caminho).name)
+        ) from erro
 
 
 def ler_solicitacao_arquivo(caminho: Path) -> SolicitacaoReembolso:
