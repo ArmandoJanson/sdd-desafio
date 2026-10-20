@@ -9,7 +9,7 @@
 > Vale 20 dos 100 pontos, e é a seção que mais separa notas.
 
 > ⚠️ **Pendências do aluno antes de entregar (apague este bloco depois):**
-> 1. **`docs/sessions/` não existe.** Rode `/export` e commite os arquivos; as referências "`docs/sessions/<...>`" abaixo dependem disso.
+> 1. **Sessões:** `docs/sessions/01-desenvolvimento-completo.md` foi gerado a partir do registro `.jsonl` (alternativa do `FAQ.md`), porque o `/export` interativo não pôde ser executado pelo agente. Se puder, rode `/export` você mesmo ao fim e acrescente o arquivo como `02-...`. Só há **uma** sessão registrada; declare a lacuna (abaixo).
 > 2. Campos marcados **"⚠️ A PREENCHER PELO ALUNO"** são fatos que só você sabe (envelope, porcentagem de diff lido, lição pessoal). Declare também se usou IA na spec de 18/10 (`bc54d1c`, `1deafc6`), que este relatório trata como escrita por você.
 > 3. Trechos marcados **"⚠️ Rascunho a confirmar"** foram escritos a partir do registro da sessão; confirme, corrija ou apague.
 > 4. Números e hashes vêm do `git log` em 19/10/2026 (56 commits desde o template; 35 arquivos, +7649/-137 linhas; 599 testes, cobertura de `src/` em 100% de linha e de branch).
@@ -103,7 +103,7 @@ Requisito escolhido: **RN-005 — "Colaborador em viagem tem limites ampliados e
 
 **O que eu fiz:** pedi mensagem amigável. O resultado foi a **T-025** (`7062512`): `descrever_erros_de_validacao` (`src/storage/repository.py:255`) traduz cada erro para "Despesa nº 13 (id d-13), campo 'data': a data '2026-09-31' não existe no calendário.", limita a 5 problemas e esconde o jargão; os testes `test_dados_invalidos_em_portugues` e `TestMensagensAmigaveis` agora **falham se o jargão voltar** (`validation error`, `type=`, `pydantic`, `https://`). A spec ganhou o critério correspondente (§9, commit `deb4e9d`).
 
-**Onde está a evidência:** `docs/sessions/<arquivo-a-exportar>`, trecho: "Ao carregar um arquivo para validação foi apresentado o erro da imagem em anexo". ⚠️ *pendente: exportar a sessão.*
+**Onde está a evidência:** `docs/sessions/01-desenvolvimento-completo.md`, mensagem do usuário de 19/10/2026 22:40 (linha 5974): "Ao carregar um arquivo para validação foi apresentado o erro da imagem em anexo". O print em si foi omitido do export.
 
 ### Caso 2 *(opcional)*
 
@@ -187,7 +187,7 @@ Cada mudança entrou por um caminho fixo: regra e cenários na spec, uma task, u
 ⚠️ *Rascunho a confirmar.* Para um script de um arquivo ou um protótipo descartável: aqui a spec passa de 860 linhas e o log de decisões, as tasks e a matriz custam mais que o código.
 
 **O que eu faria diferente:**
-- Exportar as sessões desde a primeira (hoje `docs/sessions/` não existe).
+- Exportar as sessões desde a primeira. Hoje só há **uma** sessão registrada (19/10/2026 21:02 a 20/10/2026 09:23), exportada ao fim; a spec de 18/10 (`bc54d1c`, `1deafc6`) e a criação de `CLAUDE.md`, `plan.md` e `tasks.md` aconteceram antes e **não têm sessão exportada**.
 - Revisar a spec antes de implementar (erros de redação, exemplo de saída inconsistente, cenário com dado inexistente).
 - Definir na spec o texto das mensagens de erro, o relógio e os formatos.
 - Rodar a aplicação de verdade já na primeira versão da tela (Fase 4), e não só no fim.
