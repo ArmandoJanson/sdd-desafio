@@ -22,6 +22,22 @@ STATUS_REJEITADO = "rejeitado"
 STATUS_CATEGORIA_INVALIDA = "rejeitado - categoria inválida"
 STATUS_DUPLICIDADE = "rejeitado - duplicidade"
 
+# Justificativas fixas (spec.md, seção 4: campo ``justificativa``).
+JUSTIFICATIVA_APROVADO = "Despesa aprovada integralmente."
+JUSTIFICATIVA_VALOR = "Valor zerado ou negativo não é reembolsável (RN-010)."
+JUSTIFICATIVA_CATEGORIA = "Categoria fora da política de reembolso (RN-008)."
+JUSTIFICATIVA_DUPLICIDADE = (
+    "Duplicata de uma despesa idêntica com id mais recente (RN-007)."
+)
+JUSTIFICATIVA_PERIODO = "Data da despesa fora do período de competência (RN-006)."
+JUSTIFICATIVA_FORNECEDOR_HOSPEDAGEM = (
+    "Hospedagem sem fornecedor reconhecido "
+    "(hotel, airbnb, pousada, hostel ou camping) (RN-003)."
+)
+JUSTIFICATIVA_NOTA_FISCAL = (
+    "Nota fiscal obrigatória para despesa acima de R$ 100,00 (RN-004)."
+)
+
 CATEGORIA_ALIMENTACAO = "alimentacao"
 CATEGORIA_COWORKING = "coworking"
 CATEGORIA_HOSPEDAGEM = "hospedagem"
@@ -172,12 +188,19 @@ def limite_diario(categoria: str, em_viagem: bool) -> Decimal:
     return limite
 
 
-def avaliar_hospedagem(despesa: Despesa) -> Tuple[str, Decimal]:
-    """RN-003: ``(status, valor_reembolsado)`` de uma despesa de hospedagem."""
+def avaliar_hospedagem(despesa: Despesa) -> Tuple[str, Decimal, str]:
+    """RN-003: ``(status, valor_reembolsado, justificativa)`` da hospedagem."""
     if not hospedagem_de_viagem(despesa):
-        return STATUS_REJEITADO, Decimal("0.00")
-    teto = LIMITE_HOSPEDAGEM_POR_DIARIA * numero_de_diarias(despesa.descricao)
-    return aplicar_teto(despesa.valor, teto)
+        return STATUS_REJEITADO, Decimal("0.00"), JUSTIFICATIVA_FORNECEDOR_HOSPEDAGEM
+    diarias = numero_de_diarias(despesa.descricao)
+    teto = LIMITE_HOSPEDAGEM_POR_DIARIA * diarias
+    status, reembolso = aplicar_teto(despesa.valor, teto)
+    detalhe = (
+        f"{formatar_moeda(LIMITE_HOSPEDAGEM_POR_DIARIA)} por diária x {diarias}"
+        if diarias > 1
+        else ""
+    )
+    return status, reembolso, justificar_teto(status, teto, "RN-003", detalhe)
 
 
 # --------------------------------------------------------------------------
@@ -197,6 +220,25 @@ def aplicar_teto(valor: Decimal, disponivel: Decimal) -> Tuple[str, Decimal]:
     if reembolso > 0:
         return STATUS_PARCIAL, reembolso
     return STATUS_REJEITADO, Decimal("0.00")
+
+
+def formatar_moeda(valor: Decimal) -> str:
+    """``Decimal('1234.5')`` -> ``'R$ 1.234,50'``."""
+    texto = f"{valor:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+    return f"R$ {texto}"
+
+
+def justificar_teto(status: str, teto: Decimal, regra: str, detalhe: str = "") -> str:
+    """Justificativa do resultado de ``aplicar_teto`` (RN-001, RN-002, RN-003)."""
+    extra = f", {detalhe}" if detalhe else ""
+    if status == STATUS_APROVADO:
+        return JUSTIFICATIVA_APROVADO
+    if status == STATUS_PARCIAL:
+        return f"Valor limitado ao teto de {formatar_moeda(teto)} ({regra}{extra})."
+    return (
+        f"Teto diário de {formatar_moeda(teto)} já consumido por outras "
+        f"despesas do dia ({regra}{extra})."
+    )
 
 
 # --------------------------------------------------------------------------

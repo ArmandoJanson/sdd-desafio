@@ -118,6 +118,7 @@ class ItemAuditoria(BaseModel):
     descricao: str
     fornecedor: Fornecedor
     status_item: TextoObrigatorio
+    justificativa: TextoObrigatorio
     valor_reembolsado: Dinheiro
 
 
