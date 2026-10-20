@@ -80,14 +80,19 @@
   - **Aceite:** `test_engine.py::test_tratar_duplicatas` verifica que despesas com dados exatamente iguais mantêm apenas a entrada de ID mais recente para a esteira e rejeitam a mais antiga.
   - **Commit:**
 
-- [ ] **T-013** — Consolidação e mesclagem de arquivos JSON no repositório
+- [x] **T-013** — Consolidação e mesclagem de arquivos JSON no repositório
   - **Atende:** DT-002, Seção 4.1 do Plan
-  - **Aceite:** `test_repository.py::test_consolidacao_despesas` garante que novos envios para o mesmo colaborador/competência mesclam registros sem duplicar lançamentos.
+  - **Aceite:** `test_service.py::test_consolidacao_despesas` garante que novos envios para o mesmo colaborador/competência mesclam registros sem duplicar lançamentos.
   - **Commit:**
 
-- [ ] **T-014** — Resiliência no carregamento de JSONs corrompidos ou inválidos
+- [x] **T-014** — Resiliência no carregamento de JSONs corrompidos ou inválidos
   - **Atende:** Risco de Arquivos Corrompidos do Plan
-  - **Aceite:** `test_repository.py::test_json_corrompido_tratamento` valida a sinalização de erro graciosa sem crash na aplicação quando um JSON em `./colaborador/` está malformado.
+  - **Aceite:** `test_service.py::test_json_corrompido_tratamento` valida a sinalização de erro graciosa sem crash na aplicação quando um JSON em `./colaborador/` está malformado.
+  - **Commit:**
+
+- [x] **T-022** — Serviço de validação: gera `_resultado.json` e renomeia para `_validado.json`
+  - **Atende:** Seção 4.3 do Plan, DT-001
+  - **Aceite:** `test_service.py::test_validacao_gera_resultado_e_renomeia` valida o ciclo carregar → validar: o `_resultado.json` é gerado com a auditoria do motor, o original é renomeado fisicamente para `_validado.json` e uma segunda validação é recusada.
   - **Commit:**
 
 - [x] **T-021** — Orquestrador do motor (esteira da spec §8)
