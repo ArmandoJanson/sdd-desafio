@@ -1,0 +1,352 @@
+"""Testes da API do Controller, sem abrir a janela gráfica (T-015)."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+import config
+from ui.controller import Controller
+
+EXEMPLO = Path(__file__).resolve().parent.parent / "exemplos" / "despesas-exemplo.json"
+CHAVE = ("c-0417", "CC-ENG-PLATAFORMA", "2026-07")
+
+
+def envio(tmp_path, despesas, nome="envio.json", competencia="2026-07", id_="c-0417"):
+    caminho = tmp_path / "origem" / nome
+    caminho.parent.mkdir(exist_ok=True)
+    caminho.write_text(
+        json.dumps(
+            {
+                "colaborador": {
+                    "id": id_,
+                    "nome": "Marina Volpi",
+                    "centro_custo": "CC-ENG-PLATAFORMA",
+                },
+                "periodo": {
+                    "competencia": competencia,
+                    "inicio": "2026-07-01",
+                    "fim": "2026-07-31",
+                },
+                "despesas": despesas,
+            }
+        ),
+        "utf-8",
+    )
+    return str(caminho)
+
+
+def desp(id_, valor=10.0):
+    return {
+        "id": id_,
+        "data": "2026-07-10",
+        "categoria": "alimentacao",
+        "descricao": "Almoco",
+        "fornecedor": "Bistro",
+        "valor": valor,
+        "tem_nota_fiscal": True,
+    }
+
+
+@pytest.fixture
+def pasta(tmp_path):
+    return tmp_path / "colaborador"
+
+
+@pytest.fixture
+def ctrl(pasta):
+    return Controller(diretorio=pasta)
+
+
+def serializavel(resposta):
+    """A ponte do PyWebView serializa a resposta em JSON."""
+    json.dumps(resposta)
+    return resposta
+
+
+class TestApiExposta:
+    def test_apenas_os_metodos_da_ui_sao_publicos(self):
+        publicos = {n for n in dir(Controller) if not n.startswith("_")}
+        assert publicos == {
+            "selecionar_arquivo",
+            "avaliar_reembolso",
+            "listar_colaboradores_competencias",
+            "validar_competencia",
+            "obter_resultado",
+        }
+
+    def test_atributos_de_instancia_nao_sao_expostos(self, ctrl):
+        assert [n for n in vars(ctrl) if not n.startswith("_")] == []
+
+
+class TestSelecionarArquivo:
+    def test_sem_seletor(self, ctrl):
+        resposta = ctrl.selecionar_arquivo()
+        assert resposta["ok"] is False and "indisponível" in resposta["erro"]
+
+    def test_devolve_o_caminho_escolhido(self, pasta):
+        controller = Controller(pasta, seletor_arquivo=lambda: "C:/x/envio.json")
+        assert controller.selecionar_arquivo() == {
+            "ok": True,
+            "caminho": "C:/x/envio.json",
+        }
+
+    def test_cancelar_devolve_none(self, pasta):
+        controller = Controller(pasta, seletor_arquivo=lambda: None)
+        assert controller.selecionar_arquivo() == {"ok": True, "caminho": None}
+
+
+class TestAvaliarReembolso:
+    def test_carrega_o_exemplo_do_desafio(self, ctrl, pasta):
+        resposta = serializavel(ctrl.avaliar_reembolso(str(EXEMPLO)))
+        assert resposta == {
+            "ok": True,
+            "arquivo": "c-0417_CC-ENG-PLATAFORMA_2026-07.json",
+            "criado": True,
+            "novas": 14,
+            "ignoradas": 0,
+            "mensagem": "Arquivo criado com 14 despesas.",
+        }
+        assert (pasta / resposta["arquivo"]).is_file()
+
+    def test_uma_despesa_usa_singular(self, ctrl, tmp_path):
+        resposta = ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1")]))
+        assert resposta["mensagem"] == "Arquivo criado com 1 despesa."
+
+    def test_reenvio_identico_nao_duplica(self, ctrl, tmp_path):
+        caminho = envio(tmp_path, [desp("d-1")])
+        ctrl.avaliar_reembolso(caminho)
+        resposta = ctrl.avaliar_reembolso(caminho)
+        assert resposta["ok"] and not resposta["criado"]
+        assert resposta["mensagem"] == (
+            "Nenhuma despesa nova: todas já estavam registradas."
+        )
+
+    def test_reenvio_parcial_acrescenta_so_as_novas(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1")], "a.json"))
+        resposta = ctrl.avaliar_reembolso(
+            envio(tmp_path, [desp("d-1"), desp("d-2", 20.0)], "b.json")
+        )
+        assert (resposta["novas"], resposta["ignoradas"]) == (1, 1)
+        assert resposta["mensagem"] == (
+            "Arquivo atualizado: 1 despesa nova e 1 já registrada."
+        )
+
+    def test_varias_novas_usam_plural(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1")], "a.json"))
+        novas = [desp("d-1"), desp("d-2", 20.0), desp("d-3", 30.0)]
+        resposta = ctrl.avaliar_reembolso(envio(tmp_path, novas, "b.json"))
+        assert resposta["mensagem"] == (
+            "Arquivo atualizado: 2 despesas novas e 1 já registrada."
+        )
+
+    def test_conflito_de_id_pede_ajuste(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1", 10.0)], "a.json"))
+        resposta = serializavel(
+            ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1", 99.0)], "b.json"))
+        )
+        assert resposta["ok"] is False
+        assert "d-1" in resposta["erro"] and "Ajuste" in resposta["erro"]
+
+    @pytest.mark.parametrize("caminho", [None, "", "   ", 123, ["a.json"]])
+    def test_caminho_ausente_ou_invalido(self, ctrl, caminho):
+        resposta = ctrl.avaliar_reembolso(caminho)
+        assert resposta == {"ok": False, "erro": "Nenhum arquivo informado."}
+
+    def test_arquivo_inexistente(self, ctrl, tmp_path):
+        resposta = ctrl.avaliar_reembolso(str(tmp_path / "nada.json"))
+        assert resposta["ok"] is False and "não encontrado" in resposta["erro"]
+
+    @pytest.mark.parametrize(
+        "conteudo", ["{malformado", "", '{"colaborador": {}}', "[]"]
+    )
+    def test_json_malformado_ou_incompleto(self, ctrl, tmp_path, pasta, conteudo):
+        origem = tmp_path / "ruim.json"
+        origem.write_text(conteudo, "utf-8")
+        resposta = serializavel(ctrl.avaliar_reembolso(str(origem)))
+        assert resposta["ok"] is False and resposta["erro"]
+        assert not pasta.exists()
+
+    def test_competencia_invalida(self, ctrl, tmp_path, pasta):
+        caminho = envio(tmp_path, [desp("d-1")], competencia="2026-13")
+        resposta = ctrl.avaliar_reembolso(caminho)
+        assert resposta["ok"] is False and "YYYY-MM" in resposta["erro"]
+        assert not pasta.exists()
+
+    def test_id_de_colaborador_invalido_para_nome_de_arquivo(self, ctrl, tmp_path):
+        resposta = ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1")], id_="c_1"))
+        assert resposta["ok"] is False and "não pode conter" in resposta["erro"]
+
+    def test_competencia_ja_validada(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(envio(tmp_path, [desp("d-1")]))
+        ctrl.validar_competencia(*CHAVE)
+        nova = envio(tmp_path, [desp("d-2", 20.0)], "b.json")
+        resposta = ctrl.avaliar_reembolso(nova)
+        assert resposta["ok"] is False and "já foi validada" in resposta["erro"]
+
+
+class TestListarColaboradoresCompetencias:
+    def test_pasta_vazia(self, ctrl):
+        assert ctrl.listar_colaboradores_competencias() == {
+            "ok": True,
+            "colaboradores": [],
+        }
+
+    def test_agrupa_por_colaborador(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        junho = envio(tmp_path, [desp("d-1")], "a.json", competencia="2026-06")
+        ctrl.avaliar_reembolso(junho)
+        resposta = serializavel(ctrl.listar_colaboradores_competencias())
+        (colaborador,) = resposta["colaboradores"]
+        assert (colaborador["id"], colaborador["nome"]) == ("c-0417", "Marina Volpi")
+        assert [c["competencia"] for c in colaborador["competencias"]] == [
+            "2026-06",
+            "2026-07",
+        ]
+        assert colaborador["competencias"][1] == {
+            "centro_custo": "CC-ENG-PLATAFORMA",
+            "competencia": "2026-07",
+            "validado": False,
+            "tem_resultado": False,
+            "corrompido": False,
+            "erro": None,
+            "total_despesas": 14,
+        }
+
+    def test_indicador_de_validacao(self, ctrl):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        ctrl.validar_competencia(*CHAVE)
+        (colaborador,) = ctrl.listar_colaboradores_competencias()["colaboradores"]
+        (julho,) = colaborador["competencias"]
+        assert julho["validado"] is True and julho["tem_resultado"] is True
+
+    def test_varios_colaboradores(self, ctrl, tmp_path):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        outro = envio(tmp_path, [desp("d-1")], "a.json", id_="c-0001")
+        ctrl.avaliar_reembolso(outro)
+        lista = ctrl.listar_colaboradores_competencias()["colaboradores"]
+        assert [c["id"] for c in lista] == ["c-0001", "c-0417"]
+
+    def test_corrompido_e_sinalizado_sem_derrubar_a_lista(self, ctrl, pasta):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        (pasta / "c-0999_CC-X_2026-07.json").write_text("{nao e json", "utf-8")
+        resposta = serializavel(ctrl.listar_colaboradores_competencias())
+        por_id = {c["id"]: c for c in resposta["colaboradores"]}
+        assert por_id["c-0417"]["competencias"][0]["corrompido"] is False
+        ruim = por_id["c-0999"]
+        assert ruim["nome"] == "c-0999"  # sem nome legível, usa o id
+        assert ruim["competencias"][0]["corrompido"] is True
+        assert "malformado" in ruim["competencias"][0]["erro"]
+
+    def test_falha_ao_varrer_a_pasta(self, ctrl, pasta, monkeypatch):
+        pasta.mkdir()
+
+        def nega(self):
+            raise PermissionError("acesso negado")
+
+        monkeypatch.setattr(Path, "iterdir", nega)
+        resposta = ctrl.listar_colaboradores_competencias()
+        assert resposta["ok"] is False and "acesso negado" in resposta["erro"]
+
+    def test_usa_a_pasta_colaborador_por_padrao(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(config, "COLABORADOR_DIR", tmp_path / "padrao")
+        controller = Controller()
+        controller.avaliar_reembolso(str(EXEMPLO))
+        assert (tmp_path / "padrao").is_dir()
+        lista = controller.listar_colaboradores_competencias()["colaboradores"]
+        assert len(lista) == 1
+
+
+class TestValidarCompetencia:
+    def test_valida_e_renomeia(self, ctrl, pasta):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        resposta = serializavel(ctrl.validar_competencia(*CHAVE))
+        assert resposta == {
+            "ok": True,
+            "arquivo_resultado": "c-0417_CC-ENG-PLATAFORMA_2026-07_resultado.json",
+            "arquivo_validado": "c-0417_CC-ENG-PLATAFORMA_2026-07_validado.json",
+            "mensagem": "Competência 2026-07 validada.",
+        }
+        assert sorted(p.name for p in pasta.iterdir()) == [
+            resposta["arquivo_resultado"],
+            resposta["arquivo_validado"],
+        ]
+
+    def test_segunda_validacao_e_recusada(self, ctrl):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        ctrl.validar_competencia(*CHAVE)
+        resposta = ctrl.validar_competencia(*CHAVE)
+        assert resposta["ok"] is False and "já foi validada" in resposta["erro"]
+
+    def test_competencia_nao_carregada(self, ctrl):
+        resposta = ctrl.validar_competencia(*CHAVE)
+        assert resposta["ok"] is False and "não encontrado" in resposta["erro"]
+
+    def test_arquivo_corrompido(self, ctrl, pasta):
+        pasta.mkdir()
+        (pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07.json").write_text("{", "utf-8")
+        resposta = ctrl.validar_competencia(*CHAVE)
+        assert resposta["ok"] is False and "malformado" in resposta["erro"]
+
+    def test_competencia_invalida_gravada_no_disco(self, ctrl, pasta):
+        pasta.mkdir()
+        dados = json.loads(EXEMPLO.read_text("utf-8"))
+        dados["periodo"]["competencia"] = "2026-13"
+        (pasta / "c-0417_CC-ENG-PLATAFORMA_2026-13.json").write_text(
+            json.dumps(dados), "utf-8"
+        )
+        resposta = ctrl.validar_competencia("c-0417", "CC-ENG-PLATAFORMA", "2026-13")
+        assert resposta["ok"] is False and "YYYY-MM" in resposta["erro"]
+
+    def test_parametros_invalidos(self, ctrl):
+        resposta = ctrl.validar_competencia("c_1", "CC", "2026-07")
+        assert resposta["ok"] is False
+
+
+class TestObterResultado:
+    def test_devolve_a_auditoria_com_valores_em_texto(self, ctrl):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        ctrl.validar_competencia(*CHAVE)
+        resposta = serializavel(ctrl.obter_resultado(*CHAVE))
+        assert resposta["ok"] is True
+        resultado = resposta["resultado"]
+        assert resultado["colaborador"] == {
+            "id": "c-0417",
+            "centro_custo": "CC-ENG-PLATAFORMA",
+        }
+        (historico,) = resultado["historico_despesas"]
+        por_id = {i["id"]: i for i in historico["despesas"]}
+        assert por_id["d-001"]["status_item"] == "parcial"
+        assert por_id["d-001"]["valor_reembolsado"] == "60.00"
+        assert "RN-001" in por_id["d-001"]["justificativa"]
+        assert por_id["d-011"]["valor_reembolsado"] == "33.33"
+        assert por_id["d-006"]["status_item"] == "rejeitado - duplicidade"
+        assert len(historico["despesas"]) == 14
+
+    def test_antes_de_validar_nao_ha_resultado(self, ctrl):
+        ctrl.avaliar_reembolso(str(EXEMPLO))
+        resposta = ctrl.obter_resultado(*CHAVE)
+        assert resposta["ok"] is False and "não encontrado" in resposta["erro"]
+
+    def test_resultado_corrompido(self, ctrl, pasta):
+        pasta.mkdir()
+        arquivo = pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07_resultado.json"
+        arquivo.write_text("{}", "utf-8")
+        resposta = ctrl.obter_resultado(*CHAVE)
+        assert resposta["ok"] is False and "schema inválido" in resposta["erro"]
+
+
+def test_ciclo_completo_pela_api(tmp_path):
+    ctrl = Controller(tmp_path / "colaborador", seletor_arquivo=lambda: str(EXEMPLO))
+    caminho = ctrl.selecionar_arquivo()["caminho"]
+    assert ctrl.avaliar_reembolso(caminho)["ok"]
+
+    def competencia_de_julho():
+        lista = ctrl.listar_colaboradores_competencias()["colaboradores"]
+        return lista[0]["competencias"][0]
+
+    assert competencia_de_julho()["validado"] is False
+    assert ctrl.validar_competencia(*CHAVE)["ok"]
+    assert competencia_de_julho()["validado"] is True
+    assert ctrl.obter_resultado(*CHAVE)["ok"]
+    assert EXEMPLO.exists()  # o arquivo escolhido pelo usuário nunca é movido
