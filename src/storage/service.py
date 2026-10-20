@@ -12,6 +12,7 @@ captura esse tipo único e não precisa conhecer ``OSError`` ou ``JSONDecodeErro
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -33,6 +34,18 @@ class IdDespesaConflitanteError(RepositorioError):
         super().__init__(
             "Já existe uma despesa com o id informado e conteúdo diferente: "
             f"{', '.join(self.ids)}. Ajuste o id ou o conteúdo e envie novamente."
+        )
+
+
+class CompetenciaFuturaError(RepositorioError):
+    """RN-012: a competência é posterior ao mês atual e não pode ser carregada."""
+
+    def __init__(self, competencia: str, atual: str):
+        self.competencia = competencia
+        self.atual = atual
+        super().__init__(
+            f"A competência {competencia} é futura: só é possível carregar "
+            f"competências até o mês atual ({atual})."
         )
 
 
@@ -72,6 +85,11 @@ class EntradaCompetencia:
     corrompido: bool = False
     erro: Optional[str] = None
     total_despesas: Optional[int] = None
+
+
+def hoje() -> date:
+    """Data do relógio do computador (ponto único para os testes fixarem)."""
+    return date.today()
 
 
 @contextmanager
@@ -123,15 +141,18 @@ def consolidar_solicitacao(
 ) -> ResultadoConsolidacao:
     """Cria ou atualiza ``{id}_{cc}_{comp}.json`` sem duplicar lançamentos.
 
-    Nada é gravado se houver erro: a competência inválida (RN-009), o conflito
-    de ids, a competência já validada e o arquivo existente corrompido são
-    detectados antes da escrita.
+    Nada é gravado se houver erro: a competência inválida (RN-009), a competência
+    futura (RN-012), o conflito de ids, a competência já validada e o arquivo
+    existente corrompido são detectados antes da escrita.
     """
     competencia = nova.periodo.competencia
     if not rules.competencia_valida(competencia):
         raise engine.CompetenciaInvalidaError(
             f"competência deve seguir o formato YYYY-MM, recebido: {competencia!r}"
         )
+    agora = hoje()
+    if rules.competencia_futura(competencia, agora):  # RN-012
+        raise CompetenciaFuturaError(competencia, rules.competencia_atual(agora))
     chave = (nova.colaborador.id, nova.colaborador.centro_custo, competencia)
     caminho = repository.caminho_arquivo(*chave, diretorio=diretorio)
     validado = repository.caminho_arquivo(

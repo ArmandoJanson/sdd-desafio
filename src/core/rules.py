@@ -74,6 +74,16 @@ def competencia_valida(competencia: Optional[str]) -> bool:
     return isinstance(competencia, str) and bool(_COMPETENCIA.fullmatch(competencia))
 
 
+def competencia_atual(hoje: date) -> str:
+    """Competência (``YYYY-MM``) do mês em que ``hoje`` cai."""
+    return f"{hoje.year:04d}-{hoje.month:02d}"
+
+
+def competencia_futura(competencia: str, hoje: date) -> bool:
+    """RN-012: competência posterior ao mês atual (``competencia`` já é válida)."""
+    return competencia > competencia_atual(hoje)
+
+
 def valor_elegivel(valor: Decimal) -> bool:
     """RN-010: valores negativos ou zerados não são reembolsáveis."""
     return valor > 0
