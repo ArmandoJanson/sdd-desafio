@@ -133,31 +133,69 @@
 
 ## Fase 5 — Envelope / Testes Finais e Rastreabilidade
 
-- [ ] **T-019** — Testes de integração E2E do fluxo de persistência, auditoria e renomeação
+- [x] **T-019** — Testes de integração E2E do fluxo de persistência, auditoria e renomeação
   - **Atende:** Estratégia de Testes do Plan
   - **Aceite:** `test_integration.py` executa o ciclo completo (carregar $\rightarrow$ consolidar $\rightarrow$ avaliar $\rightarrow$ validar $\rightarrow$ renomear) usando `tmp_path`.
   - **Commit:**
 
-- [ ] **T-020** — Matriz de Rastreabilidade e Documentação do Projeto
+- [x] **T-020** — Matriz de Rastreabilidade e Documentação do Projeto
   - **Atende:** Critérios de Aceite Globais
-  - **Aceite:** Tabela de cobertura preenchida e sincronizada entre `spec.md`, `plan_2.md` e `tasks.md`.
+  - **Aceite:** Tabela de cobertura preenchida e sincronizada entre `spec.md`, `plan.md` e `tasks.md`, verificada por `test_rastreabilidade.py::test_tabela_cobre_todas_as_regras_e_ambiguidades`.
   - **Commit:**
 
 ---
 
 ## Cobertura
 
-| Regra da spec | Ambiguidades | Task | Teste |
+> Esta matriz é verificada por `tests/test_rastreabilidade.py`: todo `RN-NNN` e
+> `AMB-NNN` da spec precisa constar aqui, cada teste citado precisa existir e cada
+> task citada precisa estar concluída. Os testes de regra também levam o marcador
+> `@pytest.mark.req("RN-NNN")`.
+
+### Regras da spec
+
+| Regra da spec | Ambiguidades | Tasks | Testes |
 |---|---|---|---|
-| **RN-001** | AMB-001, AMB-003 | T-009 | `test_engine.py::test_limite_alimentacao` |
-| **RN-002** | AMB-003 | T-010 | `test_engine.py::test_limite_transporte` |
-| **RN-003** | AMB-003 | T-008 | `test_engine.py::test_contexto_viagem_e_hospedagem` |
-| **RN-004** | AMB-002 | T-011 | `test_engine.py::test_obrigatoriedade_nota_fiscal` |
-| **RN-005** | AMB-003 | T-008, T-009, T-010 | `test_engine.py::test_contexto_viagem_e_hospedagem` |
-| **RN-006** | AMB-005 | T-007 | `test_engine.py::test_vigencia_competencia` |
-| **RN-007** | AMB-004 | T-012 | `test_engine.py::test_tratar_duplicatas` |
-| **RN-008** | AMB-006, AMB-007 | T-006 | `test_engine.py::test_categorias_permitidas` |
-| **RN-009** | AMB-005 | T-005 | `test_engine.py::test_validacao_formato_e_valores` |
-| **RN-010** | AMB-008 | T-005 | `test_engine.py::test_validacao_formato_e_valores` |
-| **RN-011** | AMB-009 | T-005 | `test_engine.py::test_validacao_formato_e_valores` |
-| **Spec §8 (esteira)** | — | T-021 | `test_engine.py::test_esteira_completa` |
+| **RN-001** | AMB-001 | T-009, T-021 | `test_engine.py::test_limite_alimentacao`, `test_engine.py::TestRN001Alimentacao` |
+| **RN-002** | — | T-010, T-021 | `test_engine.py::test_limite_transporte`, `test_engine.py::TestRN002Transporte` |
+| **RN-003** | — | T-008, T-021 | `test_engine.py::test_contexto_viagem_e_hospedagem`, `test_engine.py::TestRN003Hospedagem` |
+| **RN-004** | AMB-002 | T-011, T-021 | `test_engine.py::test_obrigatoriedade_nota_fiscal`, `test_engine.py::TestRN004NotaFiscal` |
+| **RN-005** | AMB-003 | T-008, T-009, T-010 | `test_engine.py::test_contexto_viagem_e_hospedagem`, `test_engine.py::TestRN005Diarias`, `test_engine.py::TestRN005Ampliacao` |
+| **RN-006** | AMB-005 | T-007 | `test_engine.py::test_vigencia_competencia`, `test_engine.py::TestRN006Periodo` |
+| **RN-007** | AMB-004 | T-012, T-013 | `test_engine.py::test_tratar_duplicatas`, `test_engine.py::TestRN007Duplicatas`, `test_service.py::TestConflitoDeId` |
+| **RN-008** | AMB-006, AMB-007 | T-006 | `test_engine.py::test_categorias_permitidas`, `test_engine.py::TestRN008Categorias` |
+| **RN-009** | — | T-005, T-013 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN009Competencia`, `test_service.py::TestRecusas` |
+| **RN-010** | AMB-008 | T-005 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN010Negativos` |
+| **RN-011** | AMB-009 | T-005, T-002 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN011Precisao`, `test_models.py::TestDinheiro` |
+
+### Ambiguidades da spec
+
+| Ambiguidade | Regra afetada | Task | Teste |
+|---|---|---|---|
+| **AMB-001** | RN-001 | T-009 | `test_engine.py::TestRN001Alimentacao` |
+| **AMB-002** | RN-004 | T-011 | `test_engine.py::TestRN004NotaFiscal` |
+| **AMB-003** | RN-005 | T-008 | `test_engine.py::TestRN005Ampliacao` |
+| **AMB-004** | RN-007 | T-012 | `test_engine.py::TestRN007Duplicatas` |
+| **AMB-005** | RN-006 | T-007 | `test_engine.py::TestRN006Periodo` |
+| **AMB-006** | RN-008 | T-006 | `test_engine.py::TestRN008Categorias` |
+| **AMB-007** | RN-008 | T-006 | `test_engine.py::test_categorias_permitidas` |
+| **AMB-008** | RN-010 | T-005 | `test_engine.py::TestRN010Negativos` |
+| **AMB-009** | RN-011 | T-005 | `test_engine.py::TestRN011Precisao` |
+
+### Demais requisitos
+
+| Requisito | Origem | Tasks | Testes |
+|---|---|---|---|
+| Estrutura do projeto e constantes | Arquitetura (plan §3) | T-001 | `test_config.py::test_estrutura_de_diretorios_do_projeto` |
+| Modelos e valores `Decimal` | Spec §4, plan §5 | T-002 | `test_models.py::TestDinheiro`, `test_models.py::TestSchema` |
+| Repositório e nomenclatura de arquivos | Plan §3.2, DT-001 | T-003 | `test_repository.py::TestNomeArquivo`, `test_repository.py::TestSalvar` |
+| Esteira de avaliação | Spec §8 | T-021 | `test_engine.py::test_esteira_completa` |
+| Justificativa por item na saída | Spec §4, D-002 | T-023 | `test_engine.py::test_justificativa_por_item` |
+| Recusa de competência inválida | RN-009, D-001 | T-005, T-013 | `test_service.py::TestRecusas` |
+| Consolidação de despesas por id | DT-002, plan §4.1 | T-013 | `test_service.py::test_consolidacao_despesas` |
+| Arquivos corrompidos ou incompletos | Plan §8 | T-014 | `test_service.py::test_json_corrompido_tratamento` |
+| Validação, resultado e renomeação | Plan §4.3 | T-022 | `test_service.py::test_validacao_gera_resultado_e_renomeia` |
+| API do controller | Plan §4.4 | T-015 | `test_controller.py::TestApiExposta`, `test_controller.py::TestValidarCompetencia` |
+| Janela e frontend | Plan §4.2 e §4.3 | T-004, T-016, T-017, T-018 | `test_app.py::TestJanela`, `test_app.py::TestFrontend` |
+| Ciclo completo de ponta a ponta | Plan §7 | T-019 | `test_integration.py::test_ciclo_completo_carregar_consolidar_validar_renomear` |
+| Rastreabilidade | Critérios globais | T-020 | `test_rastreabilidade.py::test_tabela_cobre_todas_as_regras_e_ambiguidades` |
