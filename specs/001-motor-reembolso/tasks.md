@@ -139,6 +139,11 @@
   - **Aceite:** Botão "Resultado" exibe a lista de despesas auditadas, com valor reembolsado, status e justificativa de cada item, e um resumo (total reembolsado e contagem por status); a saída da spec não define um status geral da solicitação.
   - **Commit:**
 
+- [x] **T-026** — UI: botão "Baixar resultado" no painel de resultado
+  - **Atende:** Spec §9 (critério de download), Plan §4.3 item 3, D-004
+  - **Aceite:** `test_service.py::test_exportar_resultado` confirma que a cópia gravada é idêntica à auditoria (duas casas decimais), recusa destino dentro da pasta interna e acrescenta `.json` se faltar; `test_controller.py::TestBaixarResultado` cobre o diálogo, o cancelamento e os erros; `test_app.py::TestFrontend` confirma que o botão vem antes de "Fechar".
+  - **Commit:**
+
 ---
 
 ## Fase 5 — Envelope / Testes Finais e Rastreabilidade
@@ -208,6 +213,7 @@
 | Arquivos corrompidos ou incompletos | Plan §8 | T-014 | `test_service.py::test_json_corrompido_tratamento` |
 | Validação, resultado e renomeação | Plan §4.3 | T-022 | `test_service.py::test_validacao_gera_resultado_e_renomeia` |
 | API do controller | Plan §4.4 | T-015 | `test_controller.py::TestApiExposta`, `test_controller.py::TestValidarCompetencia` |
+| Baixar o resultado | Spec §9, D-004 | T-026 | `test_service.py::test_exportar_resultado`, `test_controller.py::TestBaixarResultado` |
 | Janela e frontend | Plan §4.2 e §4.3 | T-004, T-016, T-017, T-018 | `test_app.py::TestJanela`, `test_app.py::TestFrontend` |
 | Ciclo completo de ponta a ponta | Plan §7 | T-019 | `test_integration.py::test_ciclo_completo_carregar_consolidar_validar_renomear` |
 | Rastreabilidade | Critérios globais | T-020 | `test_rastreabilidade.py::test_tabela_cobre_todas_as_regras_e_ambiguidades` |
