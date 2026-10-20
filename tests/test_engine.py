@@ -130,7 +130,7 @@ class TestRN009Competencia:
             ("2026-13", False),
             ("2026-00", False),
             ("2026-10\n", False),
-            ("２０２６-10", False),  # dígitos não ASCII
+            ("\uff12\uff10\uff12\uff16-10", False),  # dígitos não ASCII (largura total)
             (" 2026-10", False),
             ("", False),
             (None, False),
