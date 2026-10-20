@@ -13,7 +13,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import config
 from core import engine, rules
@@ -57,6 +57,21 @@ class ResultadoValidacao:
     resultado: ResultadoAuditoria
     caminho_resultado: Path
     caminho_validado: Path
+
+
+@dataclass(frozen=True)
+class EntradaCompetencia:
+    """Uma competência encontrada em ``./colaborador/`` (plan.md, 4.2)."""
+
+    id_colaborador: str
+    centro_custo: str
+    competencia: str
+    nome: Optional[str] = None
+    validado: bool = False
+    tem_resultado: bool = False
+    corrompido: bool = False
+    erro: Optional[str] = None
+    total_despesas: Optional[int] = None
 
 
 @contextmanager
@@ -207,3 +222,109 @@ def validar_competencia(
             caminho_resultado.unlink(missing_ok=True)
             raise
     return ResultadoValidacao(resultado, caminho_resultado, validado)
+
+
+# --------------------------------------------------------------------------
+# Listagem e consulta (T-016, T-018)
+# --------------------------------------------------------------------------
+
+
+def _interpretar_nome(nome: str) -> Optional[Tuple[str, str, str, str]]:
+    """``(id, centro_custo, competencia, sufixo)`` ou ``None`` se não for nosso."""
+    if not nome.endswith(config.EXTENSAO_JSON):
+        return None
+    base = nome[: -len(config.EXTENSAO_JSON)]
+    sufixo = ""
+    for candidato in (config.SUFIXO_VALIDADO, config.SUFIXO_RESULTADO):
+        if base.endswith(candidato):
+            base, sufixo = base[: -len(candidato)], candidato
+            break
+    partes = base.split("_")
+    if len(partes) < 3:
+        return None
+    id_colaborador, centro_custo, competencia = (
+        partes[0],
+        "_".join(partes[1:-1]),
+        partes[-1],
+    )
+    if not (id_colaborador and centro_custo and competencia):
+        return None
+    return id_colaborador, centro_custo, competencia, sufixo
+
+
+def listar_competencias(
+    diretorio: Optional[Path] = None, id_colaborador: Optional[str] = None
+) -> List[EntradaCompetencia]:
+    """Varre ``./colaborador/`` e descreve cada competência encontrada.
+
+    Arquivo ilegível ou corrompido não derruba a listagem: a competência sai
+    com ``corrompido=True`` e o motivo em ``erro``. Arquivos que não seguem a
+    nomenclatura são ignorados. A ordem é por colaborador e competência.
+    """
+    pasta = Path(diretorio) if diretorio is not None else config.COLABORADOR_DIR
+    grupos: Dict[Tuple[str, str, str], Dict[str, Path]] = {}
+    try:
+        encontrados = sorted(pasta.iterdir()) if pasta.is_dir() else []
+    except OSError as erro:
+        raise FalhaDePersistenciaError(f"falha ao listar {pasta}: {erro}") from erro
+    for arquivo in encontrados:
+        interpretado = _interpretar_nome(arquivo.name)
+        if interpretado is None or not arquivo.is_file():
+            continue
+        id_, centro_custo, competencia, sufixo = interpretado
+        if id_colaborador is not None and id_ != id_colaborador:
+            continue
+        grupos.setdefault((id_, centro_custo, competencia), {})[sufixo] = arquivo
+
+    entradas = [
+        _descrever_competencia(chave, arquivos) for chave, arquivos in grupos.items()
+    ]
+    return sorted(
+        entradas, key=lambda e: (e.id_colaborador, e.competencia, e.centro_custo)
+    )
+
+
+def _descrever_competencia(
+    chave: Tuple[str, str, str], arquivos: Dict[str, Path]
+) -> EntradaCompetencia:
+    id_, centro_custo, competencia = chave
+    validado = config.SUFIXO_VALIDADO in arquivos
+    base = dict(
+        id_colaborador=id_,
+        centro_custo=centro_custo,
+        competencia=competencia,
+        validado=validado,
+        tem_resultado=config.SUFIXO_RESULTADO in arquivos,
+    )
+    origem = arquivos.get(config.SUFIXO_VALIDADO) or arquivos.get("")
+    if origem is None:
+        return EntradaCompetencia(
+            **base, corrompido=True, erro="solicitação ausente (só há resultado)"
+        )
+    try:
+        solicitacao = repository.ler_solicitacao_arquivo(origem)
+    except RepositorioError as erro:
+        return EntradaCompetencia(**base, corrompido=True, erro=str(erro))
+    return EntradaCompetencia(
+        **base,
+        nome=solicitacao.colaborador.nome,
+        total_despesas=len(solicitacao.despesas),
+    )
+
+
+def obter_resultado(
+    id_colaborador: str,
+    centro_custo: str,
+    competencia: str,
+    diretorio: Optional[Path] = None,
+) -> ResultadoAuditoria:
+    """Lê o ``_resultado.json`` gerado pela validação da competência."""
+    caminho = repository.caminho_arquivo(
+        id_colaborador,
+        centro_custo,
+        competencia,
+        sufixo=config.SUFIXO_RESULTADO,
+        diretorio=diretorio,
+    )
+    with _erros_de_disco():
+        return repository.ler_modelo(caminho, ResultadoAuditoria)

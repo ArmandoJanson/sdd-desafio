@@ -17,12 +17,14 @@ import uuid
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 import config
 from core.models import SolicitacaoReembolso
+
+ModeloT = TypeVar("ModeloT", bound=BaseModel)
 
 _SUFIXOS_VALIDOS = ("", config.SUFIXO_VALIDADO, config.SUFIXO_RESULTADO)
 # Caracteres proibidos em nome de arquivo no Windows (inclui separadores de
@@ -224,10 +226,15 @@ def ler_solicitacao(
     return ler_solicitacao_arquivo(caminho)
 
 
-def ler_solicitacao_arquivo(caminho: Path) -> SolicitacaoReembolso:
-    """Lê e valida o schema de uma solicitação em um caminho qualquer."""
+def ler_modelo(caminho: Path, tipo: Type[ModeloT]) -> ModeloT:
+    """Lê um JSON e valida o schema contra o modelo ``tipo``."""
     dados = ler_json(caminho)
     try:
-        return SolicitacaoReembolso.model_validate(dados)
+        return tipo.model_validate(dados)
     except ValidationError as erro:
         raise ArquivoCorrompidoError(f"schema inválido em {caminho}: {erro}") from erro
+
+
+def ler_solicitacao_arquivo(caminho: Path) -> SolicitacaoReembolso:
+    """Lê e valida o schema de uma solicitação em um caminho qualquer."""
+    return ler_modelo(caminho, SolicitacaoReembolso)
