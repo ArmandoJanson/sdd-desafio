@@ -328,7 +328,7 @@ class TestLer:
     )
     def test_json_valido_com_schema_invalido(self, tmp_path, conteudo):
         (tmp_path / "c-1_CC_2026-07.json").write_text(conteudo, "utf-8")
-        with pytest.raises(ArquivoCorrompidoError, match="schema inválido"):
+        with pytest.raises(ArquivoCorrompidoError, match="dados inválidos"):
             repository.ler_solicitacao("c-1", "CC", "2026-07", diretorio=tmp_path)
 
     def test_corrompido_e_repositorio_error(self, tmp_path):
@@ -374,3 +374,151 @@ class TestExiste:
         assert (tmp_path / "c-0417_CC-ENG-PLATAFORMA_2026-07.json").is_file()
         assert repository.existe_solicitacao("c-0417", "CC-ENG-PLATAFORMA", "2026-07")
         assert repository.ler_solicitacao("c-0417", "CC-ENG-PLATAFORMA", "2026-07")
+
+
+# --------------------------------------------------------------------------
+# T-025 — mensagens de erro em português
+# --------------------------------------------------------------------------
+
+
+def dados_validos():
+    return {
+        "colaborador": {"id": "c-1", "nome": "Ana", "centro_custo": "CC"},
+        "periodo": {
+            "competencia": "2026-07",
+            "inicio": "2026-07-01",
+            "fim": "2026-07-31",
+        },
+        "despesas": [
+            {
+                "id": "d-001",
+                "data": "2026-07-03",
+                "categoria": "alimentacao",
+                "descricao": "Almoco",
+                "fornecedor": "Bistro",
+                "valor": 10.5,
+                "tem_nota_fiscal": True,
+            }
+        ],
+    }
+
+
+def mensagem_de(tmp_path, dados):
+    arquivo = tmp_path / "envio.json"
+    arquivo.write_text(json.dumps(dados), "utf-8")
+    with pytest.raises(ArquivoCorrompidoError) as erro:
+        repository.ler_solicitacao_arquivo(arquivo)
+    return str(erro.value)
+
+
+JARGAO = ("validation error", "type=", "pydantic", "input_value", "https://")
+
+
+def test_dados_invalidos_em_portugues(tmp_path):
+    dados = dados_validos()
+    dados["periodo"]["fim"] = "2026-07-32"
+    dados["despesas"][0]["data"] = "2026-09-31"
+    mensagem = mensagem_de(tmp_path, dados)
+    assert mensagem.splitlines() == [
+        "O arquivo 'envio.json' tem dados inválidos:",
+        "• Período, campo 'fim': a data '2026-07-32' não existe no calendário.",
+        "• Despesa nº 1 (id d-001), campo 'data': "
+        "a data '2026-09-31' não existe no calendário.",
+    ]
+    assert not any(termo in mensagem for termo in JARGAO)
+
+
+class TestMensagensDeValidacao:
+    def test_campo_obrigatorio_ausente(self, tmp_path):
+        dados = dados_validos()
+        del dados["colaborador"]["nome"]
+        mensagem = mensagem_de(tmp_path, dados)
+        assert (
+            "• Colaborador, campo 'nome': campo obrigatório não informado." in mensagem
+        )
+
+    def test_data_em_formato_errado(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"][0]["data"] = "03/07/2026"
+        mensagem = mensagem_de(tmp_path, dados)
+        assert "a data '03/07/2026' deve estar no formato AAAA-MM-DD." in mensagem
+
+    def test_valor_invalido(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"][0]["valor"] = "abc"
+        mensagem = mensagem_de(tmp_path, dados)
+        assert (
+            "Despesa nº 1 (id d-001), campo 'valor': valor monetário inválido"
+            in mensagem
+        )
+
+    def test_tipos_e_vazios(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"][0]["tem_nota_fiscal"] = "sim"
+        dados["despesas"][0]["descricao"] = 5
+        dados["colaborador"]["id"] = ""
+        mensagem = mensagem_de(tmp_path, dados)
+        assert "Colaborador, campo 'id': não pode ficar vazio." in mensagem
+        assert "campo 'tem_nota_fiscal': deve ser verdadeiro ou falso." in mensagem
+        assert "campo 'descricao': deve ser um texto." in mensagem
+
+    def test_conteudo_que_nao_e_objeto(self, tmp_path):
+        mensagem = mensagem_de(tmp_path, [])
+        assert "• Conteúdo do arquivo: o conteúdo deve ser um objeto" in mensagem
+
+    def test_secao_com_tipo_errado(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"] = {"id": "d-1"}
+        dados["periodo"] = "2026-07"
+        mensagem = mensagem_de(tmp_path, dados)
+        assert "• Lista de despesas: deve ser uma lista." in mensagem
+        assert "• Período: deve ser um objeto." in mensagem
+
+    def test_despesa_que_nao_e_objeto(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"] = ["x"]
+        assert "• Despesa nº 1: deve ser um objeto." in mensagem_de(tmp_path, dados)
+
+    def test_despesa_sem_id_legivel_nao_cita_o_id(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"][0]["id"] = ""
+        dados["despesas"][0]["data"] = "2026-02-30"
+        mensagem = mensagem_de(tmp_path, dados)
+        assert "• Despesa nº 1, campo 'id': não pode ficar vazio." in mensagem
+        assert "• Despesa nº 1, campo 'data': a data" in mensagem
+
+    def test_limita_a_quantidade_de_problemas(self, tmp_path):
+        dados = dados_validos()
+        dados["despesas"] = [{} for _ in range(4)]  # 7 campos ausentes por despesa
+        linhas = mensagem_de(tmp_path, dados).splitlines()
+        assert len(linhas) == 1 + repository.MAXIMO_PROBLEMAS_NA_MENSAGEM + 1
+        assert linhas[-1].startswith("• … e mais ")
+        assert linhas[-1].endswith("problema(s).")
+
+    def test_campo_de_modelo_desconhecido(self, tmp_path):
+        arquivo = tmp_path / "resultado.json"
+        arquivo.write_text(json.dumps({"colaborador": {"id": "c"}}), "utf-8")
+        with pytest.raises(ArquivoCorrompidoError) as erro:
+            repository.ler_modelo(arquivo, ResultadoAuditoria)
+        mensagem = str(erro.value)
+        assert "• Colaborador, campo 'centro_custo': campo obrigatório" in mensagem
+        assert "• Campo 'historico_despesas': campo obrigatório" in mensagem
+
+    def test_json_malformado_informa_linha_e_coluna(self, tmp_path):
+        arquivo = tmp_path / "ruim.json"
+        arquivo.write_text('{\n  "a": ,\n}', "utf-8")
+        with pytest.raises(ArquivoCorrompidoError) as erro:
+            repository.ler_json(arquivo)
+        assert str(erro.value) == (
+            "O arquivo 'ruim.json' está malformado: não é um JSON válido "
+            "(erro na linha 2, coluna 8)."
+        )
+
+    def test_arquivo_fora_de_utf8(self, tmp_path):
+        arquivo = tmp_path / "latin.json"
+        arquivo.write_bytes(b'{"a": "\xe7"}')
+        with pytest.raises(ArquivoCorrompidoError) as erro:
+            repository.ler_json(arquivo)
+        assert str(erro.value) == (
+            "O arquivo 'latin.json' não está em UTF-8 e não pode ser lido."
+        )

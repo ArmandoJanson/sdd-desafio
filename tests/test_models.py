@@ -429,3 +429,21 @@ class TestDadosQueOMotorRejeita:
     def test_competencia_continua_obrigatoria(self):
         with pytest.raises(ValidationError):
             Periodo(inicio="2026-07-01", fim="2026-07-31")
+
+
+class TestMensagensDeData:
+    """As mensagens chegam à tela: em português e dizendo o que está errado."""
+
+    @pytest.mark.parametrize(
+        "data, trecho",
+        [
+            ("2026-09-31", "não existe no calendário"),
+            ("03/07/2026", "deve estar no formato AAAA-MM-DD"),
+            (20260703, "deve estar no formato AAAA-MM-DD"),
+            (datetime(2026, 7, 3, 10, 0), "sem horário"),
+        ],
+    )
+    def test_mensagem_da_data(self, data, trecho):
+        with pytest.raises(ValidationError) as erro:
+            Despesa(**despesa_dict(data=data))
+        assert trecho in str(erro.value.errors()[0]["ctx"]["error"])

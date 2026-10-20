@@ -1,11 +1,13 @@
 """Testes da API do Controller, sem abrir a janela gráfica (T-015)."""
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 import config
+from storage import service
 from ui.controller import Controller
 
 EXEMPLO = Path(__file__).resolve().parent.parent / "exemplos" / "despesas-exemplo.json"
@@ -333,7 +335,7 @@ class TestObterResultado:
         arquivo = pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07_resultado.json"
         arquivo.write_text("{}", "utf-8")
         resposta = ctrl.obter_resultado(*CHAVE)
-        assert resposta["ok"] is False and "schema inválido" in resposta["erro"]
+        assert resposta["ok"] is False and "dados inválidos" in resposta["erro"]
 
 
 def test_ciclo_completo_pela_api(tmp_path):
@@ -350,3 +352,64 @@ def test_ciclo_completo_pela_api(tmp_path):
     assert competencia_de_julho()["validado"] is True
     assert ctrl.obter_resultado(*CHAVE)["ok"]
     assert EXEMPLO.exists()  # o arquivo escolhido pelo usuário nunca é movido
+
+
+class TestCompetenciaFutura:
+    @pytest.mark.req("RN-012")
+    def test_mensagem_amigavel_e_nada_carregado(
+        self, ctrl, tmp_path, pasta, monkeypatch
+    ):
+        monkeypatch.setattr(service, "hoje", lambda: date(2026, 10, 19))
+        caminho = envio(tmp_path, [desp("d-1")], competencia="2026-11")
+        resposta = serializavel(ctrl.avaliar_reembolso(caminho))
+        assert resposta == {
+            "ok": False,
+            "erro": (
+                "A competência 2026-11 é futura: só é possível carregar "
+                "competências até o mês atual (2026-10)."
+            ),
+        }
+        assert not pasta.exists()
+        assert ctrl.listar_colaboradores_competencias()["colaboradores"] == []
+
+
+class TestMensagensAmigaveis:
+    def test_datas_inexistentes_do_arquivo_do_usuario(self, ctrl, tmp_path, pasta):
+        """O caso real: 31/11 e 31/09 não existem no calendário."""
+        despesas = [desp(f"d-{n:02d}") for n in range(1, 13)]
+        despesas.append({**desp("d-13"), "data": "2026-09-31"})
+        origem = tmp_path / "despesas.json"
+        origem.write_text(
+            json.dumps(
+                {
+                    "colaborador": {"id": "c-1", "nome": "Ana", "centro_custo": "CC"},
+                    "periodo": {
+                        "competencia": "2026-09",
+                        "inicio": "2026-09-01",
+                        "fim": "2026-11-31",
+                    },
+                    "despesas": despesas,
+                }
+            ),
+            "utf-8",
+        )
+        resposta = serializavel(ctrl.avaliar_reembolso(str(origem)))
+        assert resposta["ok"] is False
+        erro = resposta["erro"]
+        assert erro.startswith("O arquivo 'despesas.json' tem dados inválidos:")
+        assert (
+            "• Período, campo 'fim': a data '2026-11-31' não existe no calendário."
+        ) in erro
+        assert (
+            "• Despesa nº 13 (id d-13), campo 'data': "
+            "a data '2026-09-31' não existe no calendário."
+        ) in erro
+        for jargao in (
+            "validation error",
+            "type=",
+            "pydantic",
+            "input_value",
+            "https://",
+        ):
+            assert jargao not in erro
+        assert not pasta.exists()
