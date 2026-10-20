@@ -56,7 +56,8 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 │   │   ├── engine.py                     # Orquestrador da esteira (spec §8)
 │   │   └── models.py                     # Modelos Pydantic (Despesa, Colaborador, Resultado)
 │   ├── storage/                          # Manipulação do sistema de arquivos
-│   │   └── repository.py                 # Leitura, consolidação, salvamento e renomeação
+│   │   ├── repository.py                 # Leitura, escrita atômica e nomenclatura de arquivos
+│   │   └── service.py                    # Consolidação, validação e transição de estado
 │   ├── ui/                               # Frontend da aplicação
 │   │   ├── static/                       # CSS, JavaScript e assets
 │   │   └── index.html                    # Interface gráfica desktop
@@ -64,7 +65,8 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 │   └── config.py                         # Definição de caminhos e parâmetros globais
 ├── tests/                                # Testes unitários e de integração
 │   ├── test_engine.py                    # Testes de regras de negócio
-│   └── test_repository.py                # Testes de persistência e consolidação
+│   ├── test_repository.py                # Testes de leitura, escrita e nomenclatura
+│   └── test_service.py                   # Testes de consolidação, validação e erros de I/O
 ├── spec.md                               # Especificação funcional das regras de negócio
 └── plan.md                               # Plano técnico do projeto
 ```
@@ -83,8 +85,11 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 1. O usuário aciona "Avaliar Reembolso" e seleciona um arquivo JSON.
 2. O sistema extrai os campos chave: `id`, `centro_custo` e `competencia`.
 3. O sistema verifica a existência de `{id}_{centro_custo}_{competencia}.json` ou da versão `_validado.json` em `./colaborador/`:
-   - **Caso Exista:** Lê o arquivo existente, compara a lista de despesas, elimina duplicidades (chave única: `id_despesa` ou fallback `data + valor + estabelecimento`), insere os novos registros e atualiza o arquivo.
-   - **Caso Não Exista:** Salva o novo arquivo no formato padronizado `{id}_{centro_custo}_{competencia}.json`.
+   - **Existe a versão `_validado.json`:** recusa o envio (`CompetenciaJaValidadaError`); competência validada é imutável.
+   - **Existe o arquivo original:** lê o existente (cabeçalho existente prevalece), compara as despesas pelo `id` e acrescenta as novas ao final. Id repetido com conteúdo idêntico é ignorado; com conteúdo diferente interrompe tudo sem gravar (`IdDespesaConflitanteError`).
+   - **Não existe:** salva o novo arquivo no formato padronizado `{id}_{centro_custo}_{competencia}.json`.
+4. Competência fora de `YYYY-MM` (RN-009) é recusada antes de qualquer gravação (`CompetenciaInvalidaError`).
+5. Toda falha previsível de I/O sai como `RepositorioError` (`ArquivoCorrompidoError`, `ArquivoNaoEncontradoError`, `FalhaDePersistenciaError`, ...); arquivos corrompidos nunca são sobrescritos.
 
 ### 4.2. Listagem de Competências
 1. Varre o diretório `./colaborador/` e filtra arquivos cujo prefixo antes do primeiro `_` seja igual ao `id` do colaborador.
@@ -94,7 +99,7 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 1. Ao acionar o botão "Validar" em uma determinada competência:
    - Executa o motor de reembolso sobre a lista de despesas.
    - Salva o arquivo de auditoria `{id}_{centro_custo}_{competencia}_resultado.json`.
-   - Renomeia o arquivo original para `{id}_{centro_custo}_{competencia}_validado.json`.
+   - Renomeia o arquivo original para `{id}_{centro_custo}_{competencia}_validado.json` (até 3 tentativas curtas; se falhar, remove o `_resultado.json` recém-gravado e mantém o original).
    - Desabilita permanentemente o botão "Validar" para aquele registro na UI.
 2. O botão "Resultado" exibe a auditoria completa gerada.
 
@@ -175,7 +180,7 @@ atômica (arquivo temporário + `os.replace`).
 
 ### DT-002 — Tratamento de Duplicidades na Consolidação
 - **Contexto:** Reenviar o mesmo arquivo ou arquivos sobrepostos da mesma competência não deve duplicar lançamentos.
-- **Decisão:** Utilizar o campo `id_despesa` como chave primária de deduplicação. Caso ausente, utilizar a hash composta de `data + valor + estabelecimento`.
+- **Decisão:** Utilizar o `id` da despesa como única chave de deduplicação (campo obrigatório na spec, então não há fallback). Duplicatas perfeitas com ids diferentes são mantidas para o motor julgar (RN-007). Mesmo id com conteúdo diferente é conflito e interrompe o envio.
 - **Alternativa descartada:** Sobrescrever integralmente o arquivo anterior sem mesclagem.
 - **Consequência:** Permite reenvios incrementais de despesas sem perda de integridade dos dados já registrados.
 
