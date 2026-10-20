@@ -31,8 +31,12 @@
     <article>
       <header class="modal-topo">
         <h2 id="modal-titulo">Resultado da auditoria</h2>
-        <button id="btn-fechar" type="button" class="secundario" aria-label="Fechar">Fechar</button>
+        <div class="acoes-modal">
+          <button id="btn-baixar" type="button" class="primario">Baixar resultado</button>
+          <button id="btn-fechar" type="button" class="secundario" aria-label="Fechar">Fechar</button>
+        </div>
       </header>
+      <p id="modal-mensagem" class="mensagem modal-mensagem" role="status" aria-live="polite" hidden></p>
       <p id="modal-resumo" class="resumo"></p>
       <div class="rolagem">
         <table id="tabela-itens">

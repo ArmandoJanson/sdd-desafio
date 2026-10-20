@@ -4,6 +4,9 @@
 
 const el = (id) => document.getElementById(id);
 
+// Resultado exibido no painel (usado pelo botão "Baixar resultado").
+let resultadoAberto = null;
+
 function criar(tag, atributos = {}, texto = null) {
   const no = document.createElement(tag);
   for (const [chave, valor] of Object.entries(atributos)) {
@@ -20,8 +23,8 @@ function api() {
 
 // ---------------------------------------------------------------- mensagens
 
-function mostrarMensagem(texto, tipo) {
-  const caixa = el("mensagem");
+function mostrarMensagem(texto, tipo, alvo = "mensagem") {
+  const caixa = el(alvo);
   caixa.textContent = texto;
   caixa.className = "mensagem " + tipo;
   caixa.hidden = false;
@@ -29,6 +32,7 @@ function mostrarMensagem(texto, tipo) {
 
 function limparMensagem() {
   el("mensagem").hidden = true;
+  el("modal-mensagem").hidden = true;
 }
 
 // ------------------------------------------------------------------ valores
@@ -183,8 +187,29 @@ async function abrirResultado(colaborador, competencia) {
     mostrarMensagem(resposta.erro, "erro");
     return;
   }
+  resultadoAberto = { colaborador, competencia };
   desenharResultado(colaborador, competencia, resposta.resultado);
   el("modal-resultado").showModal();
+}
+
+// Pede o destino ao usuário e grava ali uma cópia do resultado aberto.
+async function baixarResultado() {
+  if (!resultadoAberto) return;
+  const botao = el("btn-baixar");
+  botao.disabled = true;
+  limparMensagem();
+  try {
+    const { colaborador, competencia } = resultadoAberto;
+    const resposta = await api().baixar_resultado(
+      colaborador.id,
+      competencia.centro_custo,
+      competencia.competencia
+    );
+    const tipo = !resposta.ok ? "erro" : resposta.cancelado ? "" : "sucesso";
+    mostrarMensagem(resposta.ok ? resposta.mensagem : resposta.erro, tipo, "modal-mensagem");
+  } finally {
+    botao.disabled = false;
+  }
 }
 
 function desenharResultado(colaborador, competencia, resultado) {
@@ -229,6 +254,7 @@ function iniciar() {
     limparMensagem();
     carregarLista();
   });
+  el("btn-baixar").addEventListener("click", baixarResultado);
   el("btn-fechar").addEventListener("click", () => el("modal-resultado").close());
   carregarLista();
 }
