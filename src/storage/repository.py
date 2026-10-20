@@ -221,6 +221,11 @@ def ler_solicitacao(
             "solicitação não encontrada para "
             f"{id_colaborador}/{centro_custo}/{competencia}"
         )
+    return ler_solicitacao_arquivo(caminho)
+
+
+def ler_solicitacao_arquivo(caminho: Path) -> SolicitacaoReembolso:
+    """Lê e valida o schema de uma solicitação em um caminho qualquer."""
     dados = ler_json(caminho)
     try:
         return SolicitacaoReembolso.model_validate(dados)
