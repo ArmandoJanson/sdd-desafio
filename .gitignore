@@ -44,6 +44,8 @@ obj/
 # Claude Code — configuracao local de maquina.
 # ATENCAO: CLAUDE.md NAO entra aqui. Ele e artefato entregavel e deve ser commitado.
 .claude/settings.local.json
+# Pode conter credenciais (ex.: chave de API em "env"): nunca commitar.
+.claude/settings.json
 
 # Cobertura de testes
 .coverage
