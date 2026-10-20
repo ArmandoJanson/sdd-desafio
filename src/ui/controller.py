@@ -14,6 +14,7 @@ from storage import service
 from storage.repository import RepositorioError
 
 SeletorArquivo = Callable[[], Optional[str]]
+SeletorDestino = Callable[[str], Optional[str]]  # recebe o nome sugerido
 Resposta = Dict[str, object]
 
 _ERROS_TRATADOS = (RepositorioError, CompetenciaInvalidaError)
@@ -32,10 +33,12 @@ class Controller:
         self,
         diretorio: Optional[Path] = None,
         seletor_arquivo: Optional[SeletorArquivo] = None,
+        seletor_destino: Optional[SeletorDestino] = None,
     ):
         # Atributos privados: o PyWebView só expõe o que não começa com "_".
         self._diretorio = Path(diretorio) if diretorio is not None else None
         self._seletor_arquivo = seletor_arquivo
+        self._seletor_destino = seletor_destino
 
     def selecionar_arquivo(self) -> Resposta:
         """Abre o diálogo de escolha de JSON; ``caminho`` é ``None`` se cancelar."""
@@ -116,6 +119,35 @@ class Controller:
         except _ERROS_TRATADOS as erro:
             return _falha(erro)
         return {"ok": True, "resultado": resultado.model_dump(mode="json")}
+
+    def baixar_resultado(
+        self, id: str, centro_custo: str, competencia: str  # noqa: A002
+    ) -> Resposta:
+        """Grava uma cópia do resultado no local que o usuário escolher."""
+        if self._seletor_destino is None:
+            return {"ok": False, "erro": "Salvar arquivo indisponível."}
+        try:
+            service.obter_resultado(id, centro_custo, competencia, self._diretorio)
+            nome = service.nome_sugerido_do_resultado(id, centro_custo, competencia)
+            escolhido = self._seletor_destino(nome)
+            if not escolhido:
+                return {
+                    "ok": True,
+                    "cancelado": True,
+                    "mensagem": "Download cancelado.",
+                }
+            destino = service.exportar_resultado(
+                id, centro_custo, competencia, Path(escolhido), self._diretorio
+            )
+        except _ERROS_TRATADOS as erro:
+            return _falha(erro)
+        return {
+            "ok": True,
+            "cancelado": False,
+            "arquivo": destino.name,
+            "caminho": str(destino),
+            "mensagem": f"Resultado salvo em {destino}",
+        }
 
 
 def _mensagem_consolidacao(consolidacao: service.ResultadoConsolidacao) -> str:
