@@ -620,3 +620,148 @@ class TestFalhasNaValidacao:
                 service.validar_competencia(*CHAVE, diretorio=tmp_path)
         service.validar_competencia(*CHAVE, diretorio=tmp_path)
         assert arquivos(tmp_path) == [RESULTADO, VALIDADO]
+
+
+# --------------------------------------------------------------------------
+# Listagem de competências e consulta do resultado (T-016, T-018)
+# --------------------------------------------------------------------------
+
+
+def sol_de(id_, competencia="2026-10", nome="Ana", cc="CC-X", despesas=()):
+    return SolicitacaoReembolso.model_validate(
+        {
+            "colaborador": {"id": id_, "nome": nome, "centro_custo": cc},
+            "periodo": {
+                "competencia": competencia,
+                "inicio": f"{competencia}-01",
+                "fim": f"{competencia}-28",
+            },
+            "despesas": list(despesas) or [desp("d-1", data=f"{competencia}-10")],
+        }
+    )
+
+
+class TestListarCompetencias:
+    def test_diretorio_vazio_ou_inexistente(self, tmp_path):
+        assert service.listar_competencias(tmp_path) == []
+        assert service.listar_competencias(tmp_path / "nada") == []
+
+    def test_competencia_carregada(self, tmp_path):
+        service.consolidar_solicitacao(sol([desp("d-1"), desp("d-2", "20")]), tmp_path)
+        (entrada,) = service.listar_competencias(tmp_path)
+        assert entrada == service.EntradaCompetencia(
+            id_colaborador="c-1",
+            centro_custo="CC-X",
+            competencia="2026-10",
+            nome="Ana",
+            validado=False,
+            tem_resultado=False,
+            corrompido=False,
+            erro=None,
+            total_despesas=2,
+        )
+
+    def test_competencia_validada(self, tmp_path):
+        service.consolidar_solicitacao(sol([desp("d-1")]), tmp_path)
+        service.validar_competencia(*CHAVE, diretorio=tmp_path)
+        (entrada,) = service.listar_competencias(tmp_path)
+        assert entrada.validado and entrada.tem_resultado
+        assert not entrada.corrompido
+        assert (entrada.nome, entrada.total_despesas) == ("Ana", 1)
+
+    def test_ignora_arquivos_fora_da_nomenclatura(self, tmp_path):
+        service.consolidar_solicitacao(sol([desp("d-1")]), tmp_path)
+        (tmp_path / ".gitkeep").write_text("", "utf-8")
+        (tmp_path / "anotacoes.txt").write_text("x", "utf-8")
+        (tmp_path / "solto.json").write_text("{}", "utf-8")
+        (tmp_path / "a_b.json").write_text("{}", "utf-8")
+        (tmp_path / "__x.json").write_text("{}", "utf-8")
+        (tmp_path / "c-1_CC-X_2026-10.json.tmp").write_text("{", "utf-8")
+        (tmp_path / "c-9_CC-X_2026-10.json").mkdir()
+        assert [e.competencia for e in service.listar_competencias(tmp_path)] == [
+            "2026-10"
+        ]
+
+    def test_arquivo_corrompido_nao_derruba_a_listagem(self, tmp_path):
+        service.consolidar_solicitacao(sol_de("c-1"), tmp_path)
+        (tmp_path / "c-2_CC-X_2026-10.json").write_text("{nao e json", "utf-8")
+        (tmp_path / "c-3_CC-X_2026-10.json").write_text('{"colaborador": {}}', "utf-8")
+        ok, ruim, incompleto = service.listar_competencias(tmp_path)
+        assert not ok.corrompido and ok.erro is None
+        assert ruim.corrompido and "malformado" in ruim.erro
+        assert incompleto.corrompido and "schema inválido" in incompleto.erro
+        assert ruim.nome is None and ruim.total_despesas is None
+
+    def test_apenas_resultado_orfao_e_sinalizado(self, tmp_path):
+        (tmp_path / RESULTADO).write_text("{}", "utf-8")
+        (entrada,) = service.listar_competencias(tmp_path)
+        assert entrada.corrompido and entrada.tem_resultado
+        assert "solicitação ausente" in entrada.erro
+
+    def test_validado_tem_preferencia_sobre_original(self, tmp_path):
+        service.consolidar_solicitacao(sol_de("c-1", nome="Ana"), tmp_path)
+        shutil.copy(tmp_path / ORIGINAL, tmp_path / VALIDADO)
+        (entrada,) = service.listar_competencias(tmp_path)
+        assert entrada.validado
+
+    def test_ordenacao_e_filtro_por_colaborador(self, tmp_path):
+        service.consolidar_solicitacao(sol_de("c-2", "2026-10"), tmp_path)
+        service.consolidar_solicitacao(sol_de("c-1", "2026-11"), tmp_path)
+        service.consolidar_solicitacao(sol_de("c-1", "2026-09"), tmp_path)
+        todas = service.listar_competencias(tmp_path)
+        assert [(e.id_colaborador, e.competencia) for e in todas] == [
+            ("c-1", "2026-09"),
+            ("c-1", "2026-11"),
+            ("c-2", "2026-10"),
+        ]
+        so_c2 = service.listar_competencias(tmp_path, id_colaborador="c-2")
+        assert [e.id_colaborador for e in so_c2] == ["c-2"]
+
+    def test_centro_de_custo_com_underscore(self, tmp_path):
+        service.consolidar_solicitacao(sol_de("c-1", cc="CC_ENG_X"), tmp_path)
+        (entrada,) = service.listar_competencias(tmp_path)
+        assert entrada.centro_custo == "CC_ENG_X"
+        assert entrada.competencia == "2026-10"
+
+    def test_usa_pasta_colaborador_por_padrao(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(config, "COLABORADOR_DIR", tmp_path)
+        service.consolidar_solicitacao(sol([desp("d-1")]))
+        assert len(service.listar_competencias()) == 1
+
+    def test_pasta_ilegivel(self, tmp_path, monkeypatch):
+        def nega(self):
+            raise PermissionError("acesso negado")
+
+        monkeypatch.setattr(Path, "iterdir", nega)
+        with pytest.raises(FalhaDePersistenciaError, match="acesso negado"):
+            service.listar_competencias(tmp_path)
+
+
+class TestObterResultado:
+    def test_devolve_a_auditoria_gravada(self, tmp_path):
+        service.consolidar_solicitacao(sol([desp("d-1", "85")]), tmp_path)
+        validacao = service.validar_competencia(*CHAVE, diretorio=tmp_path)
+        lido = service.obter_resultado(*CHAVE, diretorio=tmp_path)
+        assert lido == validacao.resultado
+        assert lido.historico_despesas[0].despesas[0].status_item == "parcial"
+
+    def test_sem_validacao_nao_ha_resultado(self, tmp_path):
+        service.consolidar_solicitacao(sol([desp("d-1")]), tmp_path)
+        with pytest.raises(ArquivoNaoEncontradoError):
+            service.obter_resultado(*CHAVE, diretorio=tmp_path)
+
+    @pytest.mark.parametrize("conteudo", ["{malformado", "{}", "[]"])
+    def test_resultado_corrompido(self, tmp_path, conteudo):
+        (tmp_path / RESULTADO).write_text(conteudo, "utf-8")
+        with pytest.raises(ArquivoCorrompidoError):
+            service.obter_resultado(*CHAVE, diretorio=tmp_path)
+
+    def test_resultado_ilegivel(self, tmp_path, monkeypatch):
+        (tmp_path / RESULTADO).write_text("{}", "utf-8")
+
+        def nega(self, *args, **kwargs):
+            raise PermissionError("acesso negado")
+
+        monkeypatch.setattr(Path, "read_text", nega)
+        with pytest.raises(FalhaDePersistenciaError):
+            service.obter_resultado(*CHAVE, diretorio=tmp_path)
