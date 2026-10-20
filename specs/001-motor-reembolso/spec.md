@@ -843,6 +843,7 @@ O sistema está pronto e aceito quando:
 - [ ] Todos os valores financeiros de reembolso na saída são apresentados em formato numérico com exatamente duas casas decimais e arredondamento matemático correto.
 - [ ] Arquivo com competência posterior ao mês atual (relógio do computador) não é carregado: nada é gravado e o sistema informa o motivo.
 - [ ] Dados inválidos no arquivo (por exemplo, uma data que não existe no calendário, como 31/09) geram uma mensagem em português que indica a despesa e o campo com problema, sem termos técnicos.
+- [ ] Na tela de resultado, o usuário pode baixar o resultado da auditoria: o sistema pede o local de destino e grava ali uma cópia do resultado, no mesmo formato da seção 4. O local não pode ser a pasta interna onde o sistema guarda os registros.
 - [ ] Cada despesa da saída traz uma `justificativa` não vazia que explica o status e o valor reembolsado e cita a regra aplicada (por exemplo, RN-004 para falta de nota fiscal).
 
 ## 10. O que fica em aberto
@@ -851,6 +852,7 @@ Todo ponto abaixo foi decidido durante o desenvolvimento porque o texto original
 
 ### Confirmadas
 
+- **Baixar resultado:** o botão fica no painel de resultado, antes de "Fechar", e grava uma cópia do resultado no local escolhido pelo usuário, com o nome sugerido igual ao do registro guardado. Se o usuário cancelar a escolha, nada é gravado. Escolher a pasta interna do sistema é recusado, para que o registro validado nunca seja sobrescrito por engano. Ver D-004.
 - **Competência atual (RN-012):** é o mês do relógio do computador no momento do carregamento. A restrição vale só para carregar: competências de meses anteriores seguem podendo ser carregadas e validadas, inclusive o exemplo do desafio (2026-07). A conferência não depende do início e do fim do período informados.
 - **Competência inválida (RN-009):** quando a competência não segue o formato `YYYY-MM`, ou está vazia ou não informada, o arquivo inteiro é recusado: nenhuma despesa é avaliada, nenhum resultado é gerado e o sistema informa o erro de formato. A recusa acontece já no carregamento do arquivo. A competência não é conferida contra o início e o fim do período.
 - **Status da duplicata (RN-007):** a despesa mais antiga de um grupo de despesas idênticas recebe o status `rejeitado - duplicidade`, no mesmo padrão de `rejeitado - categoria inválida`, para que o motivo apareça na auditoria.

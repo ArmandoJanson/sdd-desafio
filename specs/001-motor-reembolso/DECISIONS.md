@@ -10,6 +10,22 @@ Ordem cronológica inversa: a mais recente primeiro.
 
 ---
 
+## D-004 — Baixar o resultado pela tela · `19/10/2026`
+
+**Gatilho:** ao usar a aplicação, o responsável pelo produto notou que o painel de resultado não permite obter o arquivo, que só existia dentro da pasta interna do sistema.
+
+**O que mudou na spec:** seção 9 (novo critério de aceite) e seção 10 (decisão sobre o botão "Baixar resultado"). A saída da seção 4 não mudou.
+
+**Por quê:** quem usa a tela não sabe onde fica a pasta interna nem tem como levar o resultado para outro lugar.
+
+**O que isso invalidou:** nada. O plan 4.3 só previa exibir o resultado; ganhou o item 3.
+
+**Tasks afetadas:** nova T-026.
+
+**Custo:** serviço, controller, ponto de entrada, tela, testes e documentação.
+
+---
+
 ## D-003 — Competência futura não pode ser carregada · `19/10/2026`
 
 **Gatilho:** ao usar a aplicação, o responsável pelo produto carregou arquivos de meses diferentes e pediu que o sistema não aceitasse competência fora do mês corrente; na conversa, a regra foi delimitada a competências **futuras**, só no carregamento.
