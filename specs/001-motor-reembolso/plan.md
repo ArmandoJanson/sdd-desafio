@@ -105,6 +105,7 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
    - Renomeia o arquivo original para `{id}_{centro_custo}_{competencia}_validado.json` (até 3 tentativas curtas; se falhar, remove o `_resultado.json` recém-gravado e mantém o original).
    - Desabilita permanentemente o botão "Validar" para aquele registro na UI.
 2. O botão "Resultado" exibe a auditoria completa gerada.
+3. No painel, o botão "Baixar resultado" (antes de "Fechar") abre o diálogo "Salvar como" e grava uma cópia do `_resultado.json` no local escolhido. Cancelar não grava nada; destino dentro de `./colaborador/` é recusado (`DestinoInvalidoError`) para não sobrescrever registros.
 
 ---
 
@@ -117,6 +118,7 @@ Métodos públicos de `Controller` (únicos expostos ao JS); todos devolvem `dic
 - `listar_colaboradores_competencias()`: colaboradores com competências, indicador `validado`, `tem_resultado` e `corrompido`.
 - `validar_competencia(id, centro_custo, competencia)`: audita, grava o resultado e renomeia.
 - `obter_resultado(id, centro_custo, competencia)`: auditoria gravada; valores monetários como texto com duas casas.
+- `baixar_resultado(id, centro_custo, competencia)`: pede o destino (diálogo injetado por `app.py`) e grava a cópia; `cancelado` é `true` se o usuário desistir.
 
 O `Controller` não importa `webview`, o que permite testá-lo sem abrir a janela.
 
