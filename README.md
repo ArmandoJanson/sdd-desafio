@@ -17,6 +17,94 @@ Aula bônus de SDD, fechando a trilha:
 
 ---
 
+## Como executar a aplicação
+
+**Reembolsos — Motor de Avaliação** é um programa de computador (janela desktop) que lê arquivos JSON de despesas, aplica a política de reembolso, valida cada competência e gera um resultado de auditoria com a justificativa de cada despesa.
+
+### O que você precisa
+
+- **Windows 10 ou 11.** Foi desenvolvido e testado no Windows; outros sistemas não foram testados.
+- **Python 3.10 ou mais novo** (testado com 3.12). Baixe em [python.org/downloads](https://www.python.org/downloads/) e, na primeira tela do instalador, **marque "Add python.exe to PATH"**.
+- **Microsoft Edge WebView2.** Já vem no Windows 11 e na maioria dos Windows 10 atualizados; se faltar, instale o "WebView2 Runtime" no site da Microsoft.
+
+### Instalar (uma vez só)
+
+Abra o terminal **dentro da pasta do projeto** (no Explorador de Arquivos, clique na barra de endereço, digite `cmd` e tecle Enter) e rode:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Abrir o programa
+
+```bash
+python src/app.py
+```
+
+A janela abre em alguns segundos. Deixe o terminal aberto enquanto usa o programa; para sair, feche a janela.
+
+### Como usar
+
+1. Clique em **Avaliar Reembolso** e escolha um arquivo `.json` de despesas. Para testar, use [`exemplos/despesas-exemplo.json`](exemplos/despesas-exemplo.json).
+2. A competência aparece na lista, agrupada por colaborador, com a situação **Pendente de validação**. Enviar de novo o mesmo colaborador e competência soma só as despesas novas, sem duplicar.
+3. Clique em **Validar**. O programa pede confirmação, porque uma competência validada **não pode mais ser alterada nem validada de novo**.
+4. Clique em **Resultado** para ver, despesa por despesa, o status, o valor reembolsado e a justificativa, com o total no topo.
+5. No painel de resultado, **Baixar resultado** salva uma cópia do JSON da auditoria no local que você escolher (não vale a pasta `colaborador`, de uso interno).
+
+Regras que aparecem como mensagem na tela:
+
+- **Competência futura não pode ser carregada** (RN-012): só vale o mês atual do relógio do computador e meses anteriores.
+- **Competência fora do formato `AAAA-MM`** recusa o arquivo (RN-009).
+- **Datas que não existem** (como 31/09), campos ausentes e JSON mal formado geram uma mensagem em português dizendo qual despesa e qual campo corrigir.
+- **Mesmo id de despesa com conteúdo diferente** interrompe o envio e pede o ajuste.
+
+### Onde ficam os dados
+
+Na pasta `colaborador/`, dentro do projeto, um arquivo por competência:
+
+| Arquivo | O que é |
+|---|---|
+| `{id}_{centro_custo}_{competencia}.json` | Competência carregada, ainda não validada |
+| `{id}_{centro_custo}_{competencia}_resultado.json` | Auditoria gerada na validação |
+| `{id}_{centro_custo}_{competencia}_validado.json` | Competência já validada |
+
+### Como testar
+
+```bash
+pytest                                   # toda a suíte
+pytest --cov=src --cov-branch            # com cobertura (src/ está em 100%)
+black --check src tests                  # formatação
+isort --check-only src tests             # ordem dos imports
+flake8 src tests                         # estilo
+```
+
+Os testes não abrem janela e usam pastas temporárias; nunca tocam em `colaborador/`.
+
+### O que foi construído
+
+```
+src/
+├── app.py            # ponto de entrada (janela PyWebView)
+├── config.py         # caminhos e constantes
+├── core/             # motor puro das regras RN-001 a RN-012 (sem I/O)
+├── storage/          # leitura/escrita dos arquivos, consolidação e validação
+└── ui/               # controller da ponte JS e frontend (HTML, CSS e JS puros)
+tests/                # testes unitários, de integração e de rastreabilidade
+specs/001-motor-reembolso/
+├── spec.md           # o QUÊ: regras de negócio, ambiguidades e decisões
+├── plan.md           # o COMO: arquitetura e decisões técnicas
+├── tasks.md          # tarefas, critérios de aceite e matriz de rastreabilidade
+└── DECISIONS.md      # log de mudanças da spec
+```
+
+### Se algo der errado
+
+- **"python não é reconhecido como comando":** o Python foi instalado sem "Add to PATH". Reinstale marcando essa opção e abra um terminal novo.
+- **Janela em branco ou erro de componente:** instale o Microsoft Edge WebView2 Runtime.
+- **"Competência futura" ao carregar o exemplo:** o exemplo é de 2026-07; o relógio do computador precisa estar em julho de 2026 ou depois.
+
+---
+
 ## Como participar
 
 **1. Faça um fork deste repositório.** Ele precisa ser público, ou você não conseguirá compartilhar depois.
