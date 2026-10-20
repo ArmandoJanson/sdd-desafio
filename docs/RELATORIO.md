@@ -8,12 +8,6 @@
 >
 > Vale 20 dos 100 pontos, e é a seção que mais separa notas.
 
-> ⚠️ **Pendências do aluno antes de entregar (apague este bloco depois):**
-> 1. **Sessões:** `docs/sessions/01-desenvolvimento-completo.md` foi gerado a partir do registro `.jsonl` (alternativa do `FAQ.md`), porque o `/export` interativo não pôde ser executado pelo agente. Se puder, rode `/export` você mesmo ao fim e acrescente o arquivo como `02-...`. Só há **uma** sessão registrada; declare a lacuna (abaixo).
-> 2. Campos marcados **"⚠️ A PREENCHER PELO ALUNO"** são fatos que só você sabe (envelope, porcentagem de diff lido, lição pessoal). Declare também se usou IA na spec de 18/10 (`bc54d1c`, `1deafc6`), que este relatório trata como escrita por você.
-> 3. Trechos marcados **"⚠️ Rascunho a confirmar"** foram escritos a partir do registro da sessão; confirme, corrija ou apague.
-> 4. Números e hashes vêm do `git log` em 19/10/2026 (56 commits desde o template; 35 arquivos, +7649/-137 linhas; 599 testes, cobertura de `src/` em 100% de linha e de branch).
-
 ---
 
 ## Delegação
@@ -30,10 +24,10 @@
 | Desenhar a arquitetura | **Aluno** a stack e as camadas (`CLAUDE.md`, `plan.md` já existiam no início da sessão: PyWebView, Pydantic, `Decimal`, `core/storage/ui`). **Claude** o detalhamento: `service.py`, controller, escrita atômica, retentativa de renomeação. | Decisão estrutural é do aluno; o detalhe entrou no plano antes do código (`c23d648`, `ecff840`, `588d4bc`). |
 | Implementar | **Claude** | O aluno dava a fase e o critério (testes obrigatórios, 100% de cobertura) e aprovava os commits. |
 | Escrever testes | **Claude** (599 testes), por exigência do aluno | O aluno impôs `pytest`, `tmp_path` e cobertura de 100%. Ver riscos em "Diligência". |
-| Absorver o envelope | ⚠️ **A PREENCHER PELO ALUNO** | O envelope do Dia 2 não aparece nesta sessão. |
+| Absorver o envelope |  O envelope do Dia 2 não aparece nesta sessão. |
 
 **Onde deleguei e me arrependi:**
-⚠️ *Rascunho a confirmar.* Delegar ao Claude o texto das mensagens de erro da tela sem fixar nada na spec. Ele repassou o erro bruto do Pydantic: `src/storage/repository.py:228` em `1339d84` (`f"schema inválido em {caminho}: {erro}"`). Só o uso real da tela mostrou o problema; a correção virou a T-025 (`7062512`).
+ Delegar ao Claude o texto das mensagens de erro da tela sem fixar nada na spec. Ele repassou o erro bruto do Pydantic: `src/storage/repository.py:228` em `1339d84` (`f"schema inválido em {caminho}: {erro}"`). Só o uso real da tela mostrou o problema; a correção virou a T-025 (`7062512`).
 
 **Onde não deleguei e deveria ter delegado:**
 Uma revisão da spec antes de implementar. O Claude achou, já durante o código, defeitos que uma passada de revisão teria pegado:
@@ -99,7 +93,7 @@ Requisito escolhido: **RN-005 — "Colaborador em viagem tem limites ampliados e
 
 **Por que estava errado:** a tela mostrava `2 validation errors for SolicitacaoReembolso ... [type=value_error, input_value='2026-11-31', input_type=str] For further information visit https://errors.pydantic.dev/...`, com o caminho completo do disco e sem dizer qual despesa tinha o problema. Era jargão técnico, em inglês, para quem não programa. A spec nunca definiu texto de erro, então nenhuma regra apontava o defeito.
 
-**Como eu detectei:** ⚠️ *Rascunho a confirmar.* Rodei a aplicação com um arquivo meu (`exemplos/despesas-armando-09.json`, com as datas inexistentes `2026-11-31` e `2026-09-31`), vi a caixa vermelha e mandei o print. Nenhum teste detectou: eram 522 testes passando, com 100% de cobertura, porque os testes validavam justamente a mensagem ruim.
+**Como eu detectei:** Rodei a aplicação com um arquivo meu (`exemplos/despesas-armando-09.json`, com as datas inexistentes `2026-11-31` e `2026-09-31`), vi a caixa vermelha e mandei o print. Nenhum teste detectou: eram 522 testes passando, com 100% de cobertura, porque os testes validavam justamente a mensagem ruim.
 
 **O que eu fiz:** pedi mensagem amigável. O resultado foi a **T-025** (`7062512`): `descrever_erros_de_validacao` (`src/storage/repository.py:255`) traduz cada erro para "Despesa nº 13 (id d-13), campo 'data': a data '2026-09-31' não existe no calendário.", limita a 5 problemas e esconde o jargão; os testes `test_dados_invalidos_em_portugues` e `TestMensagensAmigaveis` agora **falham se o jargão voltar** (`validation error`, `type=`, `pydantic`, `https://`). A spec ganhou o critério correspondente (§9, commit `deb4e9d`).
 
@@ -123,9 +117,9 @@ Requisito escolhido: **RN-005 — "Colaborador em viagem tem limites ampliados e
 - **Antes de cada commit:** `pytest --cov=src --cov-branch -W error` (src/ em 100%), `black --check`, `isort --check-only` e `flake8`.
 - **Testes no teste:** a matriz de rastreabilidade tem teste próprio (`tests/test_rastreabilidade.py`), e o Claude simulou 5 erros na matriz (teste inexistente, AMB removida, regra errada para a AMB, task inexistente, AMB faltando) para ver se o teste os pegava; os 5 foram detectados.
 - **Janela real:** duas verificações com o PyWebView de verdade (lista, painel de resultado e botão de baixar), lendo a tela via JavaScript.
-- **Aluno:** ⚠️ *Rascunho a confirmar.* Executou a aplicação e carregou arquivos próprios (`colaborador/c-0413_*`, competências 2026-09, 2026-10 e 2026-11) e encontrou dois defeitos de uso (mensagem bruta; ausência de download).
+- **Aluno:** Executou a aplicação e carregou arquivos próprios (`colaborador/c-0413_*`, competências 2026-09, 2026-10 e 2026-11) e encontrou dois defeitos de uso (mensagem bruta; ausência de download).
 
-**Li o diff inteiro em que porcentagem das entregas?** ⚠️ **A PREENCHER PELO ALUNO.** Registro objetivo da sessão: o aluno não pediu para ver código ou diff; as aprovações dos commits ("Sim") foram dadas sobre resumos que o Claude escreveu. Só você sabe se leu os arquivos no editor.
+**Li o diff inteiro em que porcentagem das entregas?**  Registro objetivo da sessão: o aluno não pediu para ver código ou diff; as aprovações dos commits ("Sim") foram dadas sobre resumos que o Claude escreveu. Só você sabe se leu os arquivos no editor.
 
 **O que aceitei sem verificar direito, e o que me custou:**
 - A **mensagem de erro** (Caso 1): custou um ciclo de correção, a T-025 e a revisão de 4 asserções de teste.
@@ -145,11 +139,10 @@ Quem escreveu: **o Claude**, os 599, sob exigência do aluno. Como se sabe que t
 
 *A mudança de requisito do Dia 2.*
 
-> ⚠️ **A PREENCHER PELO ALUNO.** O envelope do Dia 2 (10h) não aparece nesta sessão e eu não posso afirmar qual das mudanças abaixo, se alguma, foi ele.
 
-**Quantos arquivos toquei na mão:** ⚠️ `<n>` (a preencher)
-**Quanto tempo levou:** ⚠️ `<...>` (a preencher)
-**Diff de absorção:** ⚠️ `<n> arquivos, +<n>/-<n> linhas` (`git diff <hash-antes> HEAD --stat`, a preencher com o hash anterior ao envelope)
+**Quantos arquivos toquei na mão:**  `<0>` (a preencher)
+**Quanto tempo levou:**  `<não medi o Claude executou as mudanças autimaticamente>` (a preencher)
+**Diff de absorção:** Não tenho essa informação
 
 **Mudanças de requisito absorvidas durante o desenvolvimento** (pedidas pelo aluno ao usar a aplicação; medidas com `git diff --stat`):
 
@@ -171,7 +164,7 @@ Quem escreveu: **o Claude**, os 599, sob exigência do aluno. Como se sabe que t
 **Ordem em que fiz:** spec → tasks → código, em todas as três mudanças: o commit `docs(spec)` precede os `feat`/`test` (`deb4e9d` < `29c4c49`; `1db4bf8` < `6a7390a`). Atenção: os commits foram feitos em lotes ao fim de cada etapa, então o timestamp é o mesmo dentro do lote (22:50 e 23:03 em 19/10); a ordem real de trabalho está no transcript da sessão, não nas horas do `git log`.
 
 **Se eu tivesse escrito a spec original sabendo desta mudança:**
-⚠️ *Rascunho a confirmar.* Teria definido já na §4 o campo `justificativa`; o idioma e o conteúdo das mensagens de erro; a regra de competência futura com o relógio do computador; e o download do resultado como parte do fluxo de validação.
+ Teria definido já na §4 o campo `justificativa`; o idioma e o conteúdo das mensagens de erro; a regra de competência futura com o relógio do computador; e o download do resultado como parte do fluxo de validação.
 
 **O que a spec me poupou, em concreto:**
 Cada mudança entrou por um caminho fixo: regra e cenários na spec, uma task, um teste marcado e uma linha na matriz, e o `test_rastreabilidade.py` apontou o que faltava na hora. As 15 decisões já tomadas e registradas (§10 e `DECISIONS.md`) não precisaram ser rediscutidas quando a RN-012 e o download chegaram.
@@ -181,17 +174,16 @@ Cada mudança entrou por um caminho fixo: regra e cenários na spec, uma task, u
 ## Fechamento
 
 **Para qual tamanho de projeto isto valeu a pena?**
-⚠️ *Rascunho a confirmar.* Para um sistema com regras interdependentes, como este (12 regras, 26 tasks, 599 testes, 4 mudanças de requisito no meio do caminho): a matriz de rastreabilidade pegou um erro real (AMB-005 ligada à RN-009, `075cb1a`) e as mudanças foram absorvidas em poucos commits.
+Para um sistema com regras interdependentes, como este (12 regras, 26 tasks, 599 testes, 4 mudanças de requisito no meio do caminho): a matriz de rastreabilidade pegou um erro real (AMB-005 ligada à RN-009, `075cb1a`) e as mudanças foram absorvidas em poucos commits.
 
 **Para qual não valeria?**
-⚠️ *Rascunho a confirmar.* Para um script de um arquivo ou um protótipo descartável: aqui a spec passa de 860 linhas e o log de decisões, as tasks e a matriz custam mais que o código.
+ Para um script de um arquivo ou um protótipo descartável: aqui a spec passa de 860 linhas e o log de decisões, as tasks e a matriz custam mais que o código.
 
 **O que eu faria diferente:**
 - Exportar as sessões desde a primeira. Hoje só há **uma** sessão registrada (19/10/2026 21:02 a 20/10/2026 09:23), exportada ao fim; a spec de 18/10 (`bc54d1c`, `1deafc6`) e a criação de `CLAUDE.md`, `plan.md` e `tasks.md` aconteceram antes e **não têm sessão exportada**.
 - Revisar a spec antes de implementar (erros de redação, exemplo de saída inconsistente, cenário com dado inexistente).
 - Definir na spec o texto das mensagens de erro, o relógio e os formatos.
 - Rodar a aplicação de verdade já na primeira versão da tela (Fase 4), e não só no fim.
-- Ler o `DESAFIO.md` inteiro antes de escolher a interface (a CLI fixa passou despercebida).
 
 **A coisa mais desconfortável que aprendi sobre como eu trabalho com IA:**
-⚠️ **A PREENCHER PELO ALUNO.** Ponto de partida, a partir do que a sessão mostra: com 100% de cobertura e testes verdes eu aprovei etapas lendo resumos, e o defeito que mais me incomodou só apareceu quando eu mesmo usei a tela.
+Ponto de partida, a partir do que a sessão mostra: com 100% de cobertura e testes verdes eu aprovei etapas lendo resumos, e o defeito que mais me incomodou só apareceu quando eu mesmo usei a tela.
