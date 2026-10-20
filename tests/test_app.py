@@ -29,6 +29,7 @@ class WebviewFalso:
 
     class FileDialog:
         OPEN = "OPEN"
+        SAVE = "SAVE"
 
     def __init__(self, escolhidos=None):
         self.janela = JanelaFalsa(escolhidos)
@@ -145,3 +146,58 @@ class TestFrontend:
             self.html() + self.js() + (UI / "static" / "style.css").read_text("utf-8")
         )
         assert "http://" not in conteudo and "https://" not in conteudo
+
+    def test_botao_baixar_resultado_vem_antes_de_fechar(self):
+        html = self.html()
+        assert 'id="btn-baixar"' in html and "Baixar resultado" in html
+        assert html.index('id="btn-baixar"') < html.index('id="btn-fechar"')
+
+    def test_baixar_resultado_chama_a_api_e_mostra_a_mensagem_no_painel(self):
+        js = self.js()
+        assert "api().baixar_resultado(" in js
+        assert '"modal-mensagem"' in js
+        assert 'el("btn-baixar").addEventListener("click", baixarResultado)' in js
+        assert 'id="modal-mensagem"' in self.html()
+
+
+class TestDialogoDeDestino:
+    """O 'Salvar como' que o Controller usa para baixar o resultado."""
+
+    def seletor(self, webview):
+        app.criar_janela(webview)
+        return webview.janelas_criadas[0][1]["js_api"]._seletor_destino
+
+    def test_abre_o_dialogo_de_salvar_com_o_nome_sugerido(self, tmp_path, monkeypatch):
+        (tmp_path / "Downloads").mkdir()
+        monkeypatch.setattr(app, "PASTA_DOWNLOADS", tmp_path / "Downloads")
+        webview = WebviewFalso(escolhidos="C:/x/saida.json")
+        escolhido = self.seletor(webview)("c-1_CC_2026-07_resultado.json")
+        assert escolhido == "C:/x/saida.json"
+        tipo, opcoes = webview.janela.dialogos[0]
+        assert tipo == "SAVE"
+        assert opcoes == {
+            "directory": str(tmp_path / "Downloads"),
+            "save_filename": "c-1_CC_2026-07_resultado.json",
+            "file_types": (app.FILTRO_JSON,),
+        }
+
+    def test_sem_pasta_downloads_usa_o_padrao_do_sistema(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(app, "PASTA_DOWNLOADS", tmp_path / "nao_existe")
+        webview = WebviewFalso(escolhidos="x.json")
+        self.seletor(webview)("nome.json")
+        assert webview.janela.dialogos[0][1]["directory"] == ""
+
+    @pytest.mark.parametrize(
+        "devolvido, esperado",
+        [
+            ("C:/x/a.json", "C:/x/a.json"),
+            (("C:/x/a.json",), "C:/x/a.json"),
+            (["C:/x/a.json"], "C:/x/a.json"),
+            ((), None),
+            (None, None),
+            ("", None),
+        ],
+    )
+    def test_normaliza_o_retorno_do_dialogo(self, devolvido, esperado):
+        webview = WebviewFalso(escolhidos=devolvido)
+        assert self.seletor(webview)("nome.json") == esperado

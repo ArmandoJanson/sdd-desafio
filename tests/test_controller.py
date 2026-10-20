@@ -1,12 +1,14 @@
 """Testes da API do Controller, sem abrir a janela gráfica (T-015)."""
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 
 import pytest
 
 import config
+from core.models import ResultadoAuditoria
 from storage import service
 from ui.controller import Controller
 
@@ -75,6 +77,7 @@ class TestApiExposta:
             "listar_colaboradores_competencias",
             "validar_competencia",
             "obter_resultado",
+            "baixar_resultado",
         }
 
     def test_atributos_de_instancia_nao_sao_expostos(self, ctrl):
@@ -413,3 +416,103 @@ class TestMensagensAmigaveis:
         ):
             assert jargao not in erro
         assert not pasta.exists()
+
+
+class TestBaixarResultado:
+    @pytest.fixture
+    def baixador(self, pasta, tmp_path):
+        """Controller com um 'Salvar como' falso que registra o nome sugerido."""
+        escolha = {"destino": str(tmp_path / "Downloads" / "baixado.json"), "nomes": []}
+
+        def seletor_destino(nome):
+            escolha["nomes"].append(nome)
+            return escolha["destino"]
+
+        controller = Controller(pasta, seletor_destino=seletor_destino)
+        controller.avaliar_reembolso(str(EXEMPLO))
+        controller.validar_competencia(*CHAVE)
+        return controller, escolha
+
+    def test_grava_uma_copia_no_local_escolhido(self, baixador, tmp_path):
+        controller, escolha = baixador
+        resposta = serializavel(controller.baixar_resultado(*CHAVE))
+        destino = tmp_path / "Downloads" / "baixado.json"
+        assert resposta == {
+            "ok": True,
+            "cancelado": False,
+            "arquivo": "baixado.json",
+            "caminho": str(destino),
+            "mensagem": f"Resultado salvo em {destino}",
+        }
+        assert escolha["nomes"] == ["c-0417_CC-ENG-PLATAFORMA_2026-07_resultado.json"]
+        copia = json.loads(destino.read_text("utf-8"))
+        assert len(copia["historico_despesas"][0]["despesas"]) == 14
+        assert '"valor_reembolsado": 60.00' in destino.read_text("utf-8")
+
+    def test_copia_e_igual_ao_resultado_exibido(self, baixador, tmp_path):
+        controller, _ = baixador
+        exibido = controller.obter_resultado(*CHAVE)["resultado"]
+        controller.baixar_resultado(*CHAVE)
+        baixado = ResultadoAuditoria.model_validate(
+            json.loads((tmp_path / "Downloads" / "baixado.json").read_text("utf-8"))
+        )
+        assert baixado.model_dump(mode="json") == exibido
+
+    @pytest.mark.parametrize("cancelou", [None, ""])
+    def test_cancelar_nao_grava_nada(self, baixador, tmp_path, cancelou):
+        controller, escolha = baixador
+        escolha["destino"] = cancelou
+        resposta = serializavel(controller.baixar_resultado(*CHAVE))
+        assert resposta == {
+            "ok": True,
+            "cancelado": True,
+            "mensagem": "Download cancelado.",
+        }
+        assert not (tmp_path / "Downloads").exists()
+
+    def test_acrescenta_a_extensao_json(self, baixador, tmp_path):
+        controller, escolha = baixador
+        escolha["destino"] = str(tmp_path / "meu_resultado")
+        resposta = controller.baixar_resultado(*CHAVE)
+        assert resposta["arquivo"] == "meu_resultado.json"
+        assert (tmp_path / "meu_resultado.json").is_file()
+
+    def test_sem_dialogo_disponivel(self, ctrl):
+        resposta = ctrl.baixar_resultado(*CHAVE)
+        assert resposta == {"ok": False, "erro": "Salvar arquivo indisponível."}
+
+    def test_sem_resultado_nao_abre_o_dialogo(self, pasta):
+        chamadas = []
+        controller = Controller(
+            pasta, seletor_destino=lambda nome: chamadas.append(nome) or "x.json"
+        )
+        controller.avaliar_reembolso(str(EXEMPLO))  # carregado, mas não validado
+        resposta = controller.baixar_resultado(*CHAVE)
+        assert resposta["ok"] is False and "não encontrado" in resposta["erro"]
+        assert chamadas == []
+
+    def test_pasta_interna_e_recusada_com_mensagem_amigavel(self, baixador, pasta):
+        controller, escolha = baixador
+        escolha["destino"] = str(
+            pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07_validado.json"
+        )
+        antes = (pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07_validado.json").read_bytes()
+        resposta = serializavel(controller.baixar_resultado(*CHAVE))
+        assert resposta["ok"] is False and "Escolha outro local" in resposta["erro"]
+        validado = pasta / "c-0417_CC-ENG-PLATAFORMA_2026-07_validado.json"
+        assert validado.read_bytes() == antes  # registro validado intacto
+
+    def test_falha_de_disco_ao_gravar(self, baixador, monkeypatch):
+        controller, _ = baixador
+
+        def falha(origem, destino):
+            raise OSError("disco cheio")
+
+        monkeypatch.setattr(os, "replace", falha)
+        resposta = controller.baixar_resultado(*CHAVE)
+        assert resposta["ok"] is False and "disco cheio" in resposta["erro"]
+
+    def test_parametros_invalidos(self, baixador):
+        controller, _ = baixador
+        resposta = controller.baixar_resultado("c_1", "CC", "2026-07")
+        assert resposta["ok"] is False

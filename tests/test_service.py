@@ -858,3 +858,108 @@ class TestRN012Carregamento:
         antes = date.today()
         valor = service.hoje()
         assert valor in (antes, date.today())
+
+
+# --------------------------------------------------------------------------
+# T-026 — baixar o resultado
+# --------------------------------------------------------------------------
+
+
+def validada(tmp_path):
+    """Pasta interna com a competência c-1/CC-X/2026-10 validada."""
+    pasta = tmp_path / "colaborador"
+    service.consolidar_solicitacao(sol([desp("d-1", "85")]), pasta)
+    service.validar_competencia(*CHAVE, diretorio=pasta)
+    return pasta
+
+
+def test_exportar_resultado(tmp_path):
+    pasta = validada(tmp_path)
+    destino = tmp_path / "Downloads" / "meu_resultado.json"
+
+    gravado = service.exportar_resultado(*CHAVE, destino, diretorio=pasta)
+
+    assert gravado == destino
+    copia = ResultadoAuditoria.model_validate(repository.ler_json(destino))
+    assert copia == service.obter_resultado(*CHAVE, diretorio=pasta)
+    texto = destino.read_text("utf-8")
+    assert '"valor_reembolsado": 60.00' in texto  # duas casas, como número
+    assert '"justificativa": "Valor limitado ao teto de R$ 60,00 (RN-001)."' in texto
+    assert arquivos(pasta) == [RESULTADO, VALIDADO]  # a pasta interna não muda
+
+
+class TestExportarResultado:
+    def test_nome_sugerido_e_o_do_registro_guardado(self):
+        assert service.nome_sugerido_do_resultado(*CHAVE) == RESULTADO
+
+    def test_nome_sugerido_com_chave_invalida(self):
+        with pytest.raises(NomeArquivoInvalidoError):
+            service.nome_sugerido_do_resultado("c_1", "CC-X", "2026-10")
+
+    @pytest.mark.parametrize(
+        "nome, esperado",
+        [
+            ("resultado", "resultado.json"),
+            ("resultado.txt", "resultado.txt.json"),
+            ("resultado.json", "resultado.json"),
+            ("RESULTADO.JSON", "RESULTADO.JSON"),
+        ],
+    )
+    def test_acrescenta_a_extensao_json_quando_falta(self, tmp_path, nome, esperado):
+        pasta = validada(tmp_path)
+        gravado = service.exportar_resultado(
+            *CHAVE, tmp_path / "saida" / nome, diretorio=pasta
+        )
+        assert gravado.name == esperado
+        assert gravado.is_file()
+
+    def test_sobrescreve_o_destino_escolhido(self, tmp_path):
+        pasta = validada(tmp_path)
+        destino = tmp_path / "meu.json"
+        destino.write_text("antigo", "utf-8")
+        service.exportar_resultado(*CHAVE, destino, diretorio=pasta)
+        assert json.loads(destino.read_text("utf-8"))["colaborador"]["id"] == "c-1"
+
+    def test_recusa_a_pasta_interna_e_nao_grava(self, tmp_path):
+        pasta = validada(tmp_path)
+        antes = {p.name: p.read_bytes() for p in pasta.iterdir()}
+        with pytest.raises(service.DestinoInvalidoError, match="uso interno"):
+            service.exportar_resultado(*CHAVE, pasta / VALIDADO, diretorio=pasta)
+        assert {p.name: p.read_bytes() for p in pasta.iterdir()} == antes
+
+    def test_recusa_a_pasta_interna_mesmo_com_caminho_indireto(self, tmp_path):
+        pasta = validada(tmp_path)
+        indireto = pasta / "sub" / ".." / "copia.json"
+        with pytest.raises(service.DestinoInvalidoError):
+            service.exportar_resultado(*CHAVE, indireto, diretorio=pasta)
+        assert arquivos(pasta) == [RESULTADO, VALIDADO]
+
+    def test_destino_invalido_e_repositorio_error(self):
+        assert issubclass(service.DestinoInvalidoError, RepositorioError)
+
+    def test_sem_resultado(self, tmp_path):
+        pasta = tmp_path / "colaborador"
+        service.consolidar_solicitacao(sol([desp("d-1")]), pasta)
+        with pytest.raises(ArquivoNaoEncontradoError):
+            service.exportar_resultado(*CHAVE, tmp_path / "x.json", diretorio=pasta)
+        assert not (tmp_path / "x.json").exists()
+
+    def test_falha_ao_gravar_o_destino(self, tmp_path, falha_ao_trocar_arquivo):
+        # o resultado já existe; só a gravação da cópia falha
+        pasta = tmp_path / "colaborador"
+        pasta.mkdir()
+        service_resultado = sol([desp("d-1")])
+        resultado = engine.avaliar(service_resultado)
+        (pasta / RESULTADO).write_text(resultado.model_dump_json(), "utf-8")
+        destino = tmp_path / "x.json"
+        with pytest.raises(FalhaDePersistenciaError, match="disco cheio"):
+            service.exportar_resultado(*CHAVE, destino, diretorio=pasta)
+        assert not destino.exists()
+
+    def test_usa_a_pasta_colaborador_por_padrao(self, tmp_path, monkeypatch):
+        pasta = validada(tmp_path)
+        monkeypatch.setattr(config, "COLABORADOR_DIR", pasta)
+        destino = tmp_path / "fora.json"
+        assert service.exportar_resultado(*CHAVE, destino) == destino
+        with pytest.raises(service.DestinoInvalidoError):
+            service.exportar_resultado(*CHAVE, pasta / "copia.json")
