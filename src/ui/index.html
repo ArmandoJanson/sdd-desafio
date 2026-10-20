@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reembolsos — Motor de Avaliação</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header class="topo">
+    <div>
+      <h1>Reembolsos</h1>
+      <p class="subtitulo">Consolidação, validação e auditoria de despesas dos colaboradores</p>
+    </div>
+    <div class="acoes-topo">
+      <button id="btn-atualizar" type="button" class="secundario">Atualizar lista</button>
+      <button id="btn-avaliar" type="button" class="primario">Avaliar Reembolso</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="mensagem" class="mensagem" role="status" aria-live="polite" hidden></p>
+    <section id="lista" aria-label="Colaboradores e competências"></section>
+    <p id="vazio" class="vazio" hidden>
+      Nenhuma competência carregada ainda. Use <strong>Avaliar Reembolso</strong>
+      para escolher um arquivo JSON de despesas.
+    </p>
+  </main>
+
+  <dialog id="modal-resultado" aria-labelledby="modal-titulo">
+    <article>
+      <header class="modal-topo">
+        <h2 id="modal-titulo">Resultado da auditoria</h2>
+        <button id="btn-fechar" type="button" class="secundario" aria-label="Fechar">Fechar</button>
+      </header>
+      <p id="modal-resumo" class="resumo"></p>
+      <div class="rolagem">
+        <table id="tabela-itens">
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Descrição</th>
+              <th scope="col">Fornecedor</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Reembolsado</th>
+              <th scope="col">Justificativa</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </article>
+  </dialog>
+
+  <script src="static/app.js"></script>
+</body>
+</html>

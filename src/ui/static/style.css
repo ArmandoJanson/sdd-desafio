@@ -1,0 +1,128 @@
+:root {
+  --fundo: #f4f6f9;
+  --superficie: #ffffff;
+  --texto: #1f2933;
+  --texto-suave: #52606d;
+  --borda: #d9e2ec;
+  --primaria: #1d4ed8;
+  --primaria-escura: #1e3a8a;
+  --ok: #0f7b3d;
+  --ok-fundo: #e3f6ec;
+  --atencao: #8a5a00;
+  --atencao-fundo: #fff3d6;
+  --erro: #b42318;
+  --erro-fundo: #fde8e6;
+  --raio: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  line-height: 1.45;
+}
+
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+}
+
+h1 { margin: 0; font-size: 1.5rem; }
+h2 { margin: 0; font-size: 1.15rem; }
+.subtitulo { margin: 2px 0 0; color: var(--texto-suave); font-size: 0.9rem; }
+.acoes-topo { display: flex; gap: 8px; }
+
+main { padding: 20px 28px 40px; max-width: 1100px; margin: 0 auto; }
+
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: var(--raio);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+button:focus-visible { outline: 3px solid #93b4ff; outline-offset: 2px; }
+button.primario { background: var(--primaria); color: #fff; }
+button.primario:hover:not(:disabled) { background: var(--primaria-escura); }
+button.secundario { background: var(--superficie); color: var(--texto); border-color: var(--borda); }
+button.secundario:hover:not(:disabled) { background: #eef2f7; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.mensagem {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--raio);
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+}
+.mensagem.sucesso { background: var(--ok-fundo); border-color: #a6dfbd; color: var(--ok); }
+.mensagem.erro { background: var(--erro-fundo); border-color: #f4b6b0; color: var(--erro); }
+
+.vazio {
+  padding: 32px;
+  text-align: center;
+  color: var(--texto-suave);
+  background: var(--superficie);
+  border: 1px dashed var(--borda);
+  border-radius: var(--raio);
+}
+
+.colaborador {
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+.colaborador > header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--borda);
+  background: #f9fbfd;
+}
+.colaborador .id { color: var(--texto-suave); font-size: 0.85rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+th, td { padding: 9px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--borda); }
+th { font-weight: 600; color: var(--texto-suave); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+tr:last-child td { border-bottom: 0; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.selo {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.selo.validado, .selo.aprovado { background: var(--ok-fundo); color: var(--ok); }
+.selo.pendente, .selo.parcial { background: var(--atencao-fundo); color: var(--atencao); }
+.selo.corrompido, .selo.rejeitado { background: var(--erro-fundo); color: var(--erro); }
+.erro-detalhe { display: block; margin-top: 4px; font-size: 0.8rem; color: var(--erro); }
+
+dialog {
+  width: min(1000px, 94vw);
+  max-height: 88vh;
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+}
+dialog::backdrop { background: rgba(15, 23, 42, 0.45); }
+dialog article { display: flex; flex-direction: column; max-height: 88vh; }
+.modal-topo { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--borda); }
+.resumo { margin: 0; padding: 12px 18px; background: #f9fbfd; border-bottom: 1px solid var(--borda); }
+.rolagem { overflow: auto; }
