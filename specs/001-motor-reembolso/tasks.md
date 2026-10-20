@@ -27,9 +27,9 @@
   - **Aceite:** `test_repository.py` valida a leitura, escrita e padronização dos nomes de arquivo `{id}_{centro_custo}_{competencia}.json` no diretório `./colaborador/`.
   - **Commit:**
 
-- [ ] **T-004** — Setup básico e inicialização do PyWebView
+- [x] **T-004** — Setup básico e inicialização do PyWebView
   - **Atende:** Arquitetura UI / PyWebView
-  - **Aceite:** `app.py` abre a janela desktop carregando a interface web sem erros de runtime.
+  - **Aceite:** `app.py` abre a janela desktop carregando a interface web sem erros de runtime (`test_app.py` cobre a configuração da janela; a abertura real foi conferida manualmente).
   - **Commit:**
 
 ---
@@ -95,6 +95,11 @@
   - **Aceite:** `test_service.py::test_validacao_gera_resultado_e_renomeia` valida o ciclo carregar → validar: o `_resultado.json` é gerado com a auditoria do motor, o original é renomeado fisicamente para `_validado.json` e uma segunda validação é recusada.
   - **Commit:**
 
+- [x] **T-023** — Justificativa por item na auditoria
+  - **Atende:** Spec §4 (saída), Spec §9, D-002
+  - **Aceite:** `test_engine.py::test_justificativa_por_item` confirma que cada despesa devolve uma justificativa não vazia citando a regra aplicada (RN-003, RN-004, RN-006, RN-007, RN-008, RN-010, RN-001/002).
+  - **Commit:**
+
 - [x] **T-021** — Orquestrador do motor (esteira da spec §8)
   - **Atende:** Spec §8 (ordem de aplicação), Spec §9 (critérios de aceite), RN-001 a RN-011
   - **Aceite:** `test_engine.py::test_esteira_completa` processa `exemplos/despesas-exemplo.json` e devolve um `ResultadoAuditoria` com o `status_item` e o `valor_reembolsado` esperados por despesa; o motor não faz I/O.
@@ -104,24 +109,24 @@
 
 ## Fase 4 — Interface do Usuário e Integração
 
-- [ ] **T-015** — Controller API (Python Bridge para PyWebView)
+- [x] **T-015** — Controller API (Python Bridge para PyWebView)
   - **Atende:** Arquitetura Camada Visual
-  - **Aceite:** Métodos expostos no backend (`carregar_arquivo`, `listar_competencias`, `validar_competencia`, `obter_resultado`) operam de forma isolada e integrados ao frontend.
+  - **Aceite:** `test_controller.py` valida, sem abrir a janela, os métodos expostos (`selecionar_arquivo`, `avaliar_reembolso`, `listar_colaboradores_competencias`, `validar_competencia`, `obter_resultado`), que respondem `{ok, ...}` e nunca levantam exceção por falha prevista.
   - **Commit:**
 
-- [ ] **T-016** — UI: Seleção, upload e exibição de competências do colaborador
+- [x] **T-016** — UI: Seleção, upload e exibição de competências do colaborador
   - **Atende:** Seção 4.2 do Plan
-  - **Aceite:** Interface carrega o diretório `./colaborador/`, agrupa competências por colaborador e identifica visualmente com sufixo `_validado`.
+  - **Aceite:** Interface carrega o diretório `./colaborador/`, agrupa competências por colaborador e identifica visualmente as competências validadas (`_validado`), pendentes e com arquivo corrompido.
   - **Commit:**
 
-- [ ] **T-017** — UI: Fluxo de acionamento do botão Validar e desabilitação
+- [x] **T-017** — UI: Fluxo de acionamento do botão Validar e desabilitação
   - **Atende:** Seção 4.3 do Plan
   - **Aceite:** Acionar "Validar" gera o arquivo `_resultado.json`, renomeia o original para `_validado.json` e desabilita permanentemente o botão "Validar" para aquela competência.
   - **Commit:**
 
-- [ ] **T-018** — UI: Modal/Visualização detalhada da auditoria
+- [x] **T-018** — UI: Modal/Visualização detalhada da auditoria
   - **Atende:** Seção 4.3 do Plan
-  - **Aceite:** Botão "Resultado" exibe a lista de despesas auditadas, valores aprovados, status individual de cada item e o status geral da solicitação.
+  - **Aceite:** Botão "Resultado" exibe a lista de despesas auditadas, com valor reembolsado, status e justificativa de cada item, e um resumo (total reembolsado e contagem por status); a saída da spec não define um status geral da solicitação.
   - **Commit:**
 
 ---
