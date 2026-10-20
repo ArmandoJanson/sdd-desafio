@@ -53,6 +53,10 @@ class CompetenciaJaValidadaError(RepositorioError):
     """A competência já foi validada e não aceita novos envios nem nova validação."""
 
 
+class DestinoInvalidoError(RepositorioError):
+    """O destino escolhido para baixar o resultado não pode ser usado."""
+
+
 class FalhaDePersistenciaError(RepositorioError):
     """Erro de disco (permissão, espaço, bloqueio) ao ler, gravar ou renomear."""
 
@@ -349,3 +353,38 @@ def obter_resultado(
     )
     with _erros_de_disco():
         return repository.ler_modelo(caminho, ResultadoAuditoria)
+
+
+def nome_sugerido_do_resultado(
+    id_colaborador: str, centro_custo: str, competencia: str
+) -> str:
+    """Nome do arquivo de resultado, igual ao guardado em ``./colaborador/``."""
+    return repository.nome_arquivo(
+        id_colaborador, centro_custo, competencia, config.SUFIXO_RESULTADO
+    )
+
+
+def exportar_resultado(
+    id_colaborador: str,
+    centro_custo: str,
+    competencia: str,
+    destino: Path,
+    diretorio: Optional[Path] = None,
+) -> Path:
+    """Grava uma cópia do resultado da auditoria em ``destino`` (``.json``).
+
+    Recusa destino dentro da pasta interna ``./colaborador/``, para nunca
+    sobrescrever um registro (por exemplo, um ``_validado.json``).
+    """
+    resultado = obter_resultado(id_colaborador, centro_custo, competencia, diretorio)
+    pasta = Path(diretorio) if diretorio is not None else config.COLABORADOR_DIR
+    destino = Path(destino)
+    if destino.suffix.lower() != config.EXTENSAO_JSON:
+        destino = destino.with_name(destino.name + config.EXTENSAO_JSON)
+    with _erros_de_disco():
+        if destino.resolve().parent == pasta.resolve():
+            raise DestinoInvalidoError(
+                "Escolha outro local: a pasta 'colaborador' é de uso interno "
+                "do sistema e não pode receber o resultado baixado."
+            )
+        return repository.salvar_json(destino, resultado)
