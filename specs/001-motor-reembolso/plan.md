@@ -52,7 +52,8 @@ O sistema adota uma arquitetura em camadas desvinculando a interface do usuário
 ├── colaborador/                          # Diretório de persistência dos arquivos JSON
 ├── src/
 │   ├── core/                             # Motor de reembolso e regras de negócio
-│   │   ├── rules.py                      # Avaliação e validações financeiras
+│   │   ├── rules.py                      # Regras de negócio (funções puras, RN-001..RN-011)
+│   │   ├── engine.py                     # Orquestrador da esteira (spec §8)
 │   │   └── models.py                     # Modelos Pydantic (Despesa, Colaborador, Resultado)
 │   ├── storage/                          # Manipulação do sistema de arquivos
 │   │   └── repository.py                 # Leitura, consolidação, salvamento e renomeação
