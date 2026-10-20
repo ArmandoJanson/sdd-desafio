@@ -58,7 +58,7 @@ def nomes_definidos(arquivo):
 
 
 def test_a_spec_define_as_regras_esperadas():
-    assert REGRAS == {f"RN-{n:03d}" for n in range(1, 12)}
+    assert REGRAS == {f"RN-{n:03d}" for n in range(1, 13)}
     assert AMBIGUIDADES == {f"AMB-{n:03d}" for n in range(1, 10)}
     assert DECISOES_TECNICAS == {"DT-001", "DT-002"}
 

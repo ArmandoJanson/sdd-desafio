@@ -6,6 +6,7 @@ Integração com disco real em ``tmp_path``; nenhum teste toca ``./colaborador/`
 import json
 import os
 import shutil
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -324,7 +325,7 @@ class TestArquivosCorrompidos:
         dados = json.loads((tmp_path / ORIGINAL).read_text("utf-8"))
         del dados["despesas"][0]["valor"]
         (tmp_path / ORIGINAL).write_text(json.dumps(dados), "utf-8")
-        with pytest.raises(ArquivoCorrompidoError, match="schema inválido"):
+        with pytest.raises(ArquivoCorrompidoError, match="dados inválidos"):
             service.consolidar_solicitacao(sol([desp("d-2", "20")]), tmp_path)
 
     def test_corrompido_nao_impede_outras_competencias(self, tmp_path):
@@ -689,7 +690,7 @@ class TestListarCompetencias:
         ok, ruim, incompleto = service.listar_competencias(tmp_path)
         assert not ok.corrompido and ok.erro is None
         assert ruim.corrompido and "malformado" in ruim.erro
-        assert incompleto.corrompido and "schema inválido" in incompleto.erro
+        assert incompleto.corrompido and "dados inválidos" in incompleto.erro
         assert ruim.nome is None and ruim.total_despesas is None
 
     def test_apenas_resultado_orfao_e_sinalizado(self, tmp_path):
@@ -765,3 +766,95 @@ class TestObterResultado:
         monkeypatch.setattr(Path, "read_text", nega)
         with pytest.raises(FalhaDePersistenciaError):
             service.obter_resultado(*CHAVE, diretorio=tmp_path)
+
+
+# --------------------------------------------------------------------------
+# T-024 — RN-012: competência futura não pode ser carregada
+# --------------------------------------------------------------------------
+
+
+def fixar_hoje(monkeypatch, ano, mes, dia):
+    monkeypatch.setattr(service, "hoje", lambda: date(ano, mes, dia))
+
+
+@pytest.mark.req("RN-012")
+def test_competencia_futura_e_recusada(tmp_path, monkeypatch):
+    fixar_hoje(monkeypatch, 2026, 10, 19)
+    pasta = tmp_path / "colaborador"
+    with pytest.raises(service.CompetenciaFuturaError) as erro:
+        service.consolidar_solicitacao(sol([desp("d-1")], competencia="2026-11"), pasta)
+    assert str(erro.value) == (
+        "A competência 2026-11 é futura: só é possível carregar competências "
+        "até o mês atual (2026-10)."
+    )
+    assert (erro.value.competencia, erro.value.atual) == ("2026-11", "2026-10")
+    assert not pasta.exists()  # nada é gravado, nem a pasta
+
+
+@pytest.mark.req("RN-012")
+class TestRN012Carregamento:
+    @pytest.mark.parametrize(
+        "competencia, aceita",
+        [
+            ("2026-10", True),  # cenário 01: mês atual
+            ("2026-07", True),  # cenário 02: mês anterior
+            ("2025-01", True),
+            ("2026-11", False),  # cenário 03: mês futuro
+            ("2027-10", False),
+        ],
+    )
+    def test_cenarios_1_a_3(self, tmp_path, monkeypatch, competencia, aceita):
+        fixar_hoje(monkeypatch, 2026, 10, 19)
+        entrada = sol(
+            [desp("d-1", data=f"{competencia}-10")],
+            competencia=competencia,
+            inicio=f"{competencia}-01",
+            fim=f"{competencia}-28",
+        )
+        if aceita:
+            assert service.consolidar_solicitacao(entrada, tmp_path).criado
+        else:
+            with pytest.raises(service.CompetenciaFuturaError):
+                service.consolidar_solicitacao(entrada, tmp_path)
+            assert arquivos(tmp_path) == []
+
+    def test_cenario_4_virada_de_mes(self, tmp_path, monkeypatch):
+        entrada = sol(
+            [desp("d-1", data="2026-11-10")],
+            competencia="2026-11",
+            inicio="2026-11-01",
+            fim="2026-11-30",
+        )
+        fixar_hoje(monkeypatch, 2026, 10, 31)
+        with pytest.raises(service.CompetenciaFuturaError):
+            service.consolidar_solicitacao(entrada, tmp_path)
+        fixar_hoje(monkeypatch, 2026, 11, 1)
+        assert service.consolidar_solicitacao(entrada, tmp_path).criado
+
+    def test_carregar_arquivo_tambem_recusa_competencia_futura(
+        self, tmp_path, monkeypatch
+    ):
+        fixar_hoje(monkeypatch, 2026, 1, 15)  # o exemplo do desafio é de 2026-07
+        with pytest.raises(service.CompetenciaFuturaError):
+            service.carregar_arquivo(EXEMPLO, tmp_path / "colaborador")
+        assert not (tmp_path / "colaborador").exists()
+
+    def test_competencias_passadas_continuam_validaveis(self, tmp_path, monkeypatch):
+        fixar_hoje(monkeypatch, 2026, 10, 19)
+        service.carregar_arquivo(EXEMPLO, tmp_path)  # 2026-07
+        service.validar_competencia("c-0417", "CC-ENG-PLATAFORMA", "2026-07", tmp_path)
+        assert len(service.listar_competencias(tmp_path)) == 1
+
+    def test_formato_invalido_tem_prioridade_sobre_a_checagem_de_futuro(self, tmp_path):
+        entrada = sol([desp("d-1")], competencia="9999-13")
+        with pytest.raises(engine.CompetenciaInvalidaError):
+            service.consolidar_solicitacao(entrada, tmp_path)
+
+    def test_erro_de_competencia_futura_e_repositorio_error(self):
+        assert issubclass(service.CompetenciaFuturaError, RepositorioError)
+
+    def test_hoje_usa_o_relogio_do_computador(self, monkeypatch):
+        monkeypatch.undo()  # desfaz o relógio fixo da fixture automática
+        antes = date.today()
+        valor = service.hoje()
+        assert valor in (antes, date.today())

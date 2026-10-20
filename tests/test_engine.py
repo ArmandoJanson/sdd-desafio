@@ -1167,3 +1167,39 @@ class TestJustificativas:
     )
     def test_formatar_moeda(self, valor, esperado):
         assert rules.formatar_moeda(Decimal(valor)) == esperado
+
+
+# --------------------------------------------------------------------------
+# T-024 — RN-012: competência futura (regra pura; o carregamento está em test_service)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.req("RN-012")
+class TestRN012CompetenciaFutura:
+    @pytest.mark.parametrize(
+        "hoje, esperado",
+        [
+            (date(2026, 10, 19), "2026-10"),
+            (date(2026, 1, 5), "2026-01"),
+            (date(2026, 12, 31), "2026-12"),
+        ],
+    )
+    def test_competencia_atual(self, hoje, esperado):
+        assert rules.competencia_atual(hoje) == esperado
+
+    @pytest.mark.parametrize(
+        "competencia, hoje, futura",
+        [
+            ("2026-10", date(2026, 10, 19), False),  # mês atual
+            ("2026-09", date(2026, 10, 19), False),
+            ("2025-12", date(2026, 10, 19), False),
+            ("2026-11", date(2026, 10, 19), True),
+            ("2027-01", date(2026, 10, 19), True),
+            ("2026-11", date(2026, 10, 31), True),  # virada de mês (cenário 04)
+            ("2026-11", date(2026, 11, 1), False),
+            ("2027-01", date(2026, 12, 31), True),  # virada de ano
+            ("2027-01", date(2027, 1, 1), False),
+        ],
+    )
+    def test_competencia_futura(self, competencia, hoje, futura):
+        assert rules.competencia_futura(competencia, hoje) is futura
