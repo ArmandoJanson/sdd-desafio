@@ -642,6 +642,48 @@ Então a regra não é atendida por ser posterior ao período permitido e o sist
         Quando o sistema processar a formatação da RN-011;
 
         Então o sistema deve normalizar o valor exibindo/armazenando duas casas decimais (R$ 100,00) para garantir a precisão requerida pela política.
+
+### RN-012 — Competência futura não pode ser carregada
+
+**Regra:**
+    A competência do arquivo não pode ser posterior ao mês atual, conforme a data do relógio do computador. Se for futura, o arquivo não é carregado: o sistema não grava nada e informa uma mensagem explicando o motivo. Competências do mês atual e de meses anteriores continuam permitidas.
+
+**Origem:** solicitação do responsável pelo produto em 19/10/2026 (ver D-003)
+**Aceite:**
+    **Cenário 01** — Competência do mês atual (Carregada)
+        Dado que hoje é 19/10/2026;
+
+        E um arquivo com competência "2026-10";
+
+        Quando o usuário carregar o arquivo;
+
+        Então o arquivo é carregado normalmente.
+
+    **Cenário 02** — Competência de mês anterior (Carregada)
+        Dado que hoje é 19/10/2026;
+
+        E um arquivo com competência "2026-07";
+
+        Quando o usuário carregar o arquivo;
+
+        Então o arquivo é carregado normalmente.
+
+    **Cenário 03** — Competência de mês futuro (Recusada)
+        Dado que hoje é 19/10/2026;
+
+        E um arquivo com competência "2026-11";
+
+        Quando o usuário carregar o arquivo;
+
+        Então o sistema não carrega o arquivo, não grava nada e informa que a competência 2026-11 é futura e que só é possível carregar competências até o mês atual (2026-10).
+
+    **Cenário 04** — Virada de mês
+        Dado um arquivo com competência "2026-11";
+
+        Quando o usuário o carregar em 31/10/2026, o arquivo é recusado;
+
+        E quando o usuário o carregar em 01/11/2026, o arquivo é carregado, pois a competência passou a ser a atual.
+
 ---
 
 ## 6. Ambiguidades identificadas e decisões
@@ -760,6 +802,7 @@ A ordem de execução é:
 
 1. **Formatos e Validações de Entrada Gerais (RN-009, RN-010, RN-011):**
    - **RN-009 (Formato da Vigência):** Verifica se a vigência do lote atende ao formato `YYYY-MM`. Se inválida, recusa o arquivo e encerra, sem gerar resultado.
+   - **RN-012 (Competência Futura):** No carregamento do arquivo, recusa competência posterior ao mês atual, sem gravar nada e informando o motivo.
    - **RN-010 (Valores Negativos):** Rejeita lançamentos com valores negativos.
    - **RN-011 (Precisão Decimal):** Ajusta e padroniza os valores para 2 casas decimais via arredondamento matemático.
 
@@ -798,6 +841,8 @@ O sistema está pronto e aceito quando:
 - [ ] Qualquer categoria diferente de `alimentacao`, `coworking`, `hospedagem` e `transporte_urbano` (respeitando caixa baixa e ausência de acentuação) retorna o status `rejeitado - categoria inválida`.
 - [ ] Lançamentos com valores negativos ou zerados retornam o status `rejeitado`.
 - [ ] Todos os valores financeiros de reembolso na saída são apresentados em formato numérico com exatamente duas casas decimais e arredondamento matemático correto.
+- [ ] Arquivo com competência posterior ao mês atual (relógio do computador) não é carregado: nada é gravado e o sistema informa o motivo.
+- [ ] Dados inválidos no arquivo (por exemplo, uma data que não existe no calendário, como 31/09) geram uma mensagem em português que indica a despesa e o campo com problema, sem termos técnicos.
 - [ ] Cada despesa da saída traz uma `justificativa` não vazia que explica o status e o valor reembolsado e cita a regra aplicada (por exemplo, RN-004 para falta de nota fiscal).
 
 ## 10. O que fica em aberto
@@ -806,6 +851,7 @@ Todo ponto abaixo foi decidido durante o desenvolvimento porque o texto original
 
 ### Confirmadas
 
+- **Competência atual (RN-012):** é o mês do relógio do computador no momento do carregamento. A restrição vale só para carregar: competências de meses anteriores seguem podendo ser carregadas e validadas, inclusive o exemplo do desafio (2026-07). A conferência não depende do início e do fim do período informados.
 - **Competência inválida (RN-009):** quando a competência não segue o formato `YYYY-MM`, ou está vazia ou não informada, o arquivo inteiro é recusado: nenhuma despesa é avaliada, nenhum resultado é gerado e o sistema informa o erro de formato. A recusa acontece já no carregamento do arquivo. A competência não é conferida contra o início e o fim do período.
 - **Status da duplicata (RN-007):** a despesa mais antiga de um grupo de despesas idênticas recebe o status `rejeitado - duplicidade`, no mesmo padrão de `rejeitado - categoria inválida`, para que o motivo apareça na auditoria.
 - **Despesa mais recente (RN-007):** os números dentro do identificador são comparados como números (`d-9` é anterior a `d-10`). Se os identificadores forem iguais, vale a despesa lançada por último no arquivo. Com três ou mais despesas idênticas, só a mais recente é mantida. Só participam dessa comparação as despesas que já passaram por RN-010 e RN-008.

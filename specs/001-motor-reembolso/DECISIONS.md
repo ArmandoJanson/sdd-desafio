@@ -10,6 +10,22 @@ Ordem cronológica inversa: a mais recente primeiro.
 
 ---
 
+## D-003 — Competência futura não pode ser carregada · `19/10/2026`
+
+**Gatilho:** ao usar a aplicação, o responsável pelo produto carregou arquivos de meses diferentes e pediu que o sistema não aceitasse competência fora do mês corrente; na conversa, a regra foi delimitada a competências **futuras**, só no carregamento.
+
+**O que mudou na spec:** nova RN-012 (seção 5), item na ordem de aplicação (seção 8), dois critérios de aceite (seção 9) e a definição de "competência atual" (seção 10).
+
+**Por quê:** impedir lançamentos para um período que ainda não começou. Competências passadas continuam válidas, pois reembolsos costumam ser lançados com atraso.
+
+**O que isso invalidou:** nada que existia: os testes anteriores usam competências passadas, mas passaram a depender de um relógio fixo nos testes.
+
+**Tasks afetadas:** nova T-024 (RN-012) e nova T-025 (mensagens de erro em português).
+
+**Custo:** serviço, controller (mensagem), testes e documentação.
+
+---
+
 ## D-002 — Justificativa por item na saída · `19/10/2026`
 
 **Gatilho:** ao especificar a tela de Resultado, o responsável pediu a justificativa de cada item; a saída da seção 4 só tinha `status_item` e `valor_reembolsado`, e vários motivos de rejeição saíam todos como `rejeitado`.
