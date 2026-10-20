@@ -100,6 +100,16 @@
   - **Aceite:** `test_engine.py::test_justificativa_por_item` confirma que cada despesa devolve uma justificativa não vazia citando a regra aplicada (RN-003, RN-004, RN-006, RN-007, RN-008, RN-010, RN-001/002).
   - **Commit:**
 
+- [x] **T-024** — RN-012: competência futura não pode ser carregada
+  - **Atende:** RN-012, D-003
+  - **Aceite:** `test_service.py::test_competencia_futura_e_recusada` confirma que o carregamento recusa competência posterior ao mês do relógio, sem gravar nada, e aceita o mês atual e os anteriores; `test_controller.py::TestCompetenciaFutura` confirma a mensagem exibida.
+  - **Commit:**
+
+- [x] **T-025** — Mensagens de erro em português para dados inválidos
+  - **Atende:** Spec §9 (critério de mensagens), Plan §8 (arquivos inválidos)
+  - **Aceite:** `test_repository.py::test_dados_invalidos_em_portugues` confirma que uma data inexistente (ex.: 31/09) e outros erros de preenchimento geram mensagem em português com a despesa e o campo, sem termos técnicos do Pydantic.
+  - **Commit:**
+
 - [x] **T-021** — Orquestrador do motor (esteira da spec §8)
   - **Atende:** Spec §8 (ordem de aplicação), Spec §9 (critérios de aceite), RN-001 a RN-011
   - **Aceite:** `test_engine.py::test_esteira_completa` processa `exemplos/despesas-exemplo.json` e devolve um `ResultadoAuditoria` com o `status_item` e o `valor_reembolsado` esperados por despesa; o motor não faz I/O.
@@ -166,6 +176,7 @@
 | **RN-008** | AMB-006, AMB-007 | T-006 | `test_engine.py::test_categorias_permitidas`, `test_engine.py::TestRN008Categorias` |
 | **RN-009** | — | T-005, T-013 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN009Competencia`, `test_service.py::TestRecusas` |
 | **RN-010** | AMB-008 | T-005 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN010Negativos` |
+| **RN-012** | — | T-024 | `test_service.py::test_competencia_futura_e_recusada`, `test_service.py::TestRN012Carregamento`, `test_engine.py::TestRN012CompetenciaFutura`, `test_controller.py::TestCompetenciaFutura` |
 | **RN-011** | AMB-009 | T-005, T-002 | `test_engine.py::test_validacao_formato_e_valores`, `test_engine.py::TestRN011Precisao`, `test_models.py::TestDinheiro` |
 
 ### Ambiguidades da spec
@@ -191,6 +202,7 @@
 | Repositório e nomenclatura de arquivos | Plan §3.2, DT-001 | T-003 | `test_repository.py::TestNomeArquivo`, `test_repository.py::TestSalvar` |
 | Esteira de avaliação | Spec §8 | T-021 | `test_engine.py::test_esteira_completa` |
 | Justificativa por item na saída | Spec §4, D-002 | T-023 | `test_engine.py::test_justificativa_por_item` |
+| Mensagens de erro em português | Spec §9, plan §8 | T-025 | `test_repository.py::test_dados_invalidos_em_portugues`, `test_controller.py::TestMensagensAmigaveis` |
 | Recusa de competência inválida | RN-009, D-001 | T-005, T-013 | `test_service.py::TestRecusas` |
 | Consolidação de despesas por id | DT-002, plan §4.1 | T-013 | `test_service.py::test_consolidacao_despesas` |
 | Arquivos corrompidos ou incompletos | Plan §8 | T-014 | `test_service.py::test_json_corrompido_tratamento` |
