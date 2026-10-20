@@ -10,33 +10,32 @@ Ordem cronológica inversa: a mais recente primeiro.
 
 ---
 
-## D-002 — <título curto> · `<data>`
+## D-002 — Justificativa por item na saída · `19/10/2026`
 
-**Gatilho:** <o que provocou: envelope lacrado / erro descoberto na implementação /
-ambiguidade que só apareceu ao testar / o Claude apontou uma contradição>
+**Gatilho:** ao especificar a tela de Resultado, o responsável pediu a justificativa de cada item; a saída da seção 4 só tinha `status_item` e `valor_reembolsado`, e vários motivos de rejeição saíam todos como `rejeitado`.
 
-**O que mudou na spec:** <de → para, citando o ID da regra>
+**O que mudou na spec:** seção 4 (saída): novo campo `historico_despesas[].despesas[].justificativa` (string); seção 9: novo critério de aceite.
 
-**Por quê:**
+**Por quê:** a auditoria precisa explicar por que uma despesa foi rejeitada ou limitada; só o status não distingue falta de nota fiscal de data fora do período.
 
-**O que isso invalidou:** <requisitos, decisões técnicas, testes que caíram>
+**O que isso invalidou:** o modelo de saída do plan (5.2) e os testes que montavam itens de auditoria sem justificativa.
 
-**Tasks afetadas:** <as que precisaram ser refeitas + as novas criadas>
+**Tasks afetadas:** nova T-023 (motor e modelo); T-018 (modal exibe a justificativa).
 
-**Custo:** <quantos arquivos tocados, quanto tempo>
+**Custo:** modelo, regras, motor, 3 arquivos de teste e a spec.
 
 ---
 
-## D-001 — <título curto> · `<data>`
+## D-001 — Competência inválida recusa o arquivo · `19/10/2026`
 
-**Gatilho:**
+**Gatilho:** ao implementar a esteira (T-021), o responsável decidiu que a RN-009 não devolve status por despesa: o arquivo é recusado.
 
-**O que mudou na spec:**
+**O que mudou na spec:** RN-009 (regra e cenários 02, 03 e 04): de "retornar o status rejeitado" para "recusar o arquivo, sem avaliar despesas nem gerar resultado, e informar o erro de formato"; seção 8 acompanha.
 
-**Por quê:**
+**Por quê:** uma competência inválida impede até nomear o arquivo de persistência; não há resultado confiável a gerar.
 
-**O que isso invalidou:**
+**O que isso invalidou:** a primeira versão do motor, que devolvia todas as despesas `rejeitado` com 0,00, e seus testes.
 
-**Tasks afetadas:**
+**Tasks afetadas:** T-005 e T-021 (refeitas); T-013 (recusa também no carregamento).
 
-**Custo:**
+**Custo:** motor, serviço, spec e testes de RN-009.

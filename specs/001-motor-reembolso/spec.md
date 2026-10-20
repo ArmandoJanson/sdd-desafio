@@ -1,6 +1,6 @@
 # Spec — Motor de Cálculo de Reembolso
 
-**Versão:** 1.0 · **Status:** rascunho · **Última alteração:** `15/10/2026`
+**Versão:** 1.0 · **Status:** rascunho · **Última alteração:** `19/10/2026`
 
 > **Regra de ouro deste arquivo:** ele descreve o QUÊ e o PORQUÊ. Nenhuma linha
 > aqui pode citar linguagem, biblioteca, classe, função ou estrutura de pasta.
@@ -63,6 +63,7 @@ Validar as despesas dos colaboradores de forma ágil, precisa e automatizada, ga
 | `historico_despesas[].despesas[].descricao`|(string) | Descrição do reembolso|
 | `historico_despesas[].despesas[].fornecedor`|(string, normalizada para minúsculas) | fornecedor |
 | `historico_despesas[].despesas[].status_item`|(string) | Status da avaliação|
+| `historico_despesas[].despesas[].justificativa`|(string) | Motivo curto do status e do valor reembolsado, citando a regra aplicada|
 | `historico_despesas[].despesas[].valor_reembolsado`|(float, máximo de 2 casas decimais) | Valor da despesa |
 | 
 
@@ -81,6 +82,7 @@ Exemplo da saída:
 					"descricao": "Almoco com cliente",
 					"fornecedor": "Restaurante Tavola",
 					"status_item": "aprovado",
+					"justificativa": "Despesa aprovada integralmente.",
 					"valor_reembolsado": 72.50
 				},
 				{
@@ -88,7 +90,8 @@ Exemplo da saída:
 					 "data": "2026-07-03",
 					 "descricao": "Jantar apos reuniao",
 					 "fornecedor": "Cantina do Porto",
-					 "status_item": "aprovado"
+					 "status_item": "aprovado",
+					 "justificativa": "Despesa aprovada integralmente.",
 					 "valor_reembolsado": 38.00
 				}
 			]
@@ -795,6 +798,7 @@ O sistema está pronto e aceito quando:
 - [ ] Qualquer categoria diferente de `alimentacao`, `coworking`, `hospedagem` e `transporte_urbano` (respeitando caixa baixa e ausência de acentuação) retorna o status `rejeitado - categoria inválida`.
 - [ ] Lançamentos com valores negativos ou zerados retornam o status `rejeitado`.
 - [ ] Todos os valores financeiros de reembolso na saída são apresentados em formato numérico com exatamente duas casas decimais e arredondamento matemático correto.
+- [ ] Cada despesa da saída traz uma `justificativa` não vazia que explica o status e o valor reembolsado e cita a regra aplicada (por exemplo, RN-004 para falta de nota fiscal).
 
 ## 10. O que fica em aberto
 
@@ -829,3 +833,4 @@ Decisões tomadas ao implementar a consolidação e a validação dos arquivos (
 - **Competência inválida no carregamento (RN-009) — Provisória:** o arquivo é recusado já ao ser carregado, sem ser gravado.
 - **Falhas ao validar — Provisória:** o resultado é gravado antes de marcar a competência como validada; se marcar falhar (arquivo bloqueado, após poucas tentativas), o resultado é removido e a competência segue não validada, podendo ser validada de novo.
 - **Arquivos corrompidos — Provisória:** arquivo com JSON malformado ou campos obrigatórios ausentes nunca é sobrescrito nem validado; o sistema informa o erro e as demais competências continuam utilizáveis.
+- **Justificativa por item — Decidida:** a saída ganha o campo `justificativa` (texto curto em português, com a regra citada) em cada despesa, para a auditoria explicar também os rejeitados com status `rejeitado` simples (valor inválido, fora do período, sem nota fiscal, teto esgotado, hospedagem sem fornecedor reconhecido). Ver D-002.
